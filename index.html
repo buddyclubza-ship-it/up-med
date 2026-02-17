@@ -76,9 +76,8 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // *** วาง Config ของคุณที่ก๊อปมาทับตรงนี้ ***
         const firebaseConfig = {
-            apiKey: "AIza...",
+            apiKey: "AIzaSyAmt2szWOjQBPfzfs7QfQVysgfaRzHyPa0",
             authDomain: "up-med-online.firebaseapp.com",
             databaseURL: "https://up-med-online-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "up-med-online",
@@ -91,23 +90,29 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const medsRef = ref(db, 'meds');
-        
-        window.meds = []; // กำหนดเป็น Global เพื่อให้ฟังก์ชัน render เข้าถึงได้
+
+        window.meds = [];
         const statusList = ["กำลังจัดทำแผน", "กำลังจัดทำใบ", "จัดทำ PO", "บริษัทส่งยา", "รอตรวจรับ", "รับเข้าคลังแล้ว"];
 
-        // 1. ดึงข้อมูลจาก Cloud และวาดตาราง
+        // 1. ดึงข้อมูล Realtime
         onValue(medsRef, (snapshot) => {
             const data = snapshot.val();
-            window.meds = data ? Object.values(data) : [];
-            render(); 
+            // ตรวจสอบโครงสร้างข้อมูลและอัปเดต window.meds
+            window.meds = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
+            window.render(); 
         });
 
-        // 2. ฟังก์ชันหลักในการบันทึก
-        window.saveToCloud = (data) => set(medsRef, data);
+        // 2. ฟังก์ชันจัดการข้อมูล (ปรับปรุงให้ปลอดภัยขึ้น)
+        window.saveToCloud = (data) => {
+            // ป้องกันการเซฟค่าว่างหรือค่าที่โหลดไม่เสร็จ
+            if (data && Array.isArray(data)) {
+                set(medsRef, data);
+            }
+        };
 
         window.addMed = () => {
             const name = prompt("ป้อนชื่อยา/เวชภัณฑ์:");
-            if(name) {
+            if(name && name.trim() !== "") {
                 const newMed = {
                     id: Date.now(),
                     name: name,
@@ -115,22 +120,23 @@
                     arrivalDate: '',
                     receivedDate: ''
                 };
-                saveToCloud([newMed, ...window.meds]);
+                // ใช้ข้อมูลล่าสุดที่โหลดมา ต่อท้ายด้วยตัวใหม่
+                window.saveToCloud([newMed, ...window.meds]);
             }
         };
 
         window.delMed = (id) => {
             if(confirm("ลบรายการนี้ออกจากระบบ?")) {
-                saveToCloud(window.meds.filter(m => m.id !== id));
+                const updated = window.meds.filter(m => m.id !== id);
+                window.saveToCloud(updated);
             }
         };
 
         window.updateField = (id, field, value) => {
             const updated = window.meds.map(m => m.id === id ? {...m, [field]: value} : m);
-            saveToCloud(updated);
+            window.saveToCloud(updated);
         };
 
-        // 3. ฟังก์ชันควบคุมหน้าจอ (UI)
         window.changePage = (page) => {
             document.getElementById('page-db').classList.toggle('hidden', page !== 'db');
             document.getElementById('page-in').classList.toggle('hidden', page !== 'in');
@@ -166,18 +172,18 @@
                 <tr class="hover:bg-gray-50 transition">
                     <td class="p-4 font-bold text-gray-700">${m.name}</td>
                     <td class="p-4">
-                        <select onchange="updateField(${m.id}, 'status', this.value)" class="bg-white border border-gray-200 p-2 rounded-lg text-sm outline-none">
-                            ${statusList.map(s => `<option ${m.status===s?'selected':''}>${s}</option>`).join('')}
+                        <select onchange="window.updateField(${m.id}, 'status', this.value)" class="bg-white border border-gray-200 p-2 rounded-lg text-sm outline-none">
+                            ${statusList.map(s => `<option value="${s}" ${m.status===s?'selected':''}>${s}</option>`).join('')}
                         </select>
                     </td>
                     <td class="p-4">
-                        <input type="date" value="${m.arrivalDate}" onchange="updateField(${m.id}, 'arrivalDate', this.value)" class="bg-gray-50 border border-gray-200 p-1 rounded text-sm">
+                        <input type="date" value="${m.arrivalDate}" onchange="window.updateField(${m.id}, 'arrivalDate', this.value)" class="bg-gray-50 border border-gray-200 p-1 rounded text-sm">
                     </td>
                     <td class="p-4">
-                        <input type="date" value="${m.receivedDate}" onchange="updateField(${m.id}, 'receivedDate', this.value)" class="bg-gray-50 border border-gray-200 p-1 rounded text-sm">
+                        <input type="date" value="${m.receivedDate}" onchange="window.updateField(${m.id}, 'receivedDate', this.value)" class="bg-gray-50 border border-gray-200 p-1 rounded text-sm">
                     </td>
                     <td class="p-4 text-center">
-                        <button onclick="delMed(${m.id})" class="text-red-300 hover:text-red-600">🗑️ ลบ</button>
+                        <button onclick="window.delMed(${m.id})" class="text-red-300 hover:text-red-600">🗑️ ลบ</button>
                     </td>
                 </tr>
             `).join('');
