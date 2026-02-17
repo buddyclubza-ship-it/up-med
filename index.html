@@ -3,129 +3,148 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UP-MED PRO | ระบบจัดการเวชภัณฑ์อัจฉริยะ</title>
+    <title>UP Hospital Inventory | ระบบจัดการเวชภัณฑ์ รพ.มพ.</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Sarabun', 'Inter', sans-serif; scroll-behavior: smooth; }
-        .bg-purple-up { background-color: #602D91; }
-        .text-gold-up { color: #FDB813; }
-        .card-hover:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
-        .hidden-page { display: none; }
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700;800&display=swap');
         
-        /* Modern Scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        :root {
+            --up-purple: #602D91;
+            --up-gold: #FDB813;
+            --up-light: #F8FAFC;
+        }
 
-        /* Tabs Styling */
-        .tab-active { background-color: #602D91; color: white; box-shadow: 0 10px 15px -3px rgba(96, 45, 145, 0.3); }
-        .tab-inactive { background-color: white; color: #94A3B8; border: 1px solid #f1f1f1; }
+        body { font-family: 'Sarabun', sans-serif; background-color: #F1F5F9; color: #1E293B; }
+        
+        .bg-up-purple { background-color: var(--up-purple); }
+        .text-up-purple { color: var(--up-purple); }
+        .text-up-gold { color: var(--up-gold); }
+        
+        /* สไตล์การ์ด */
+        .med-card {
+            background: white;
+            border-radius: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .med-card:hover { transform: translateY(-4px); box-shadow: 0 12px 25px rgba(96, 45, 145, 0.08); }
 
-        .fade-in { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        /* แถบสถานะ Progress */
+        .up-progress-bg { height: 10px; background: #E2E8F0; border-radius: 10px; overflow: hidden; position: relative; }
+        .up-progress-fill { 
+            height: 100%; 
+            border-radius: 10px; 
+            background: linear-gradient(90deg, var(--up-purple), #8B5CF6);
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        .bg-done { background: linear-gradient(90deg, #10B981, #34D399) !important; }
 
-        .progress-bar { height: 6px; border-radius: 10px; background: #f1f5f9; overflow: hidden; }
-        .progress-fill { height: 100%; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
-        .toast { position: fixed; bottom: 2rem; right: 2rem; z-index: 1000; display: none; }
+        /* Badge สถานะ */
+        .status-pill {
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .hidden-page { display: none; }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Custom Tabs */
+        .tab-active { background: var(--up-purple); color: white; box-shadow: 0 8px 15px rgba(96, 45, 145, 0.2); }
+        .tab-inactive { background: white; color: #64748B; border: 1px solid #E2E8F0; }
+
+        select, input[type="date"] {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23602D91'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1rem;
+        }
     </style>
 </head>
-<body class="bg-[#F1F5F9] flex min-h-screen">
+<body class="flex min-h-screen">
 
-    <div id="toast" class="toast bg-gray-900/95 backdrop-blur-md text-white px-8 py-5 rounded-[2rem] shadow-2xl flex items-center fade-in border border-white/10">
-        <span id="toast-icon" class="mr-4 text-2xl">✅</span>
-        <span id="toast-msg" class="font-bold tracking-tight">บันทึกสำเร็จ!</span>
+    <div id="toast" class="fixed bottom-10 right-10 z-[500] hidden bg-slate-900 text-white px-8 py-5 rounded-[2rem] shadow-2xl fade-in items-center border border-white/10">
+        <span id="toast-icon" class="mr-3 text-xl">✅</span>
+        <span id="toast-msg" class="font-bold">ดำเนินการสำเร็จ</span>
     </div>
 
-    <div id="medModal" class="fixed inset-0 bg-slate-900/60 z-[100] hidden items-center justify-center p-4 backdrop-blur-md">
-        <div class="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl relative fade-in">
-            <h2 class="text-3xl font-black text-slate-800 mb-8 flex items-center">
-                <span class="mr-4 bg-purple-100 p-3 rounded-2xl">💊</span> เพิ่มรายการยา
-            </h2>
-            <div class="space-y-6">
-                <div>
-                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-3 ml-2 tracking-[0.2em]">ชื่อเวชภัณฑ์ / รายการ</label>
-                    <input type="text" id="newMedName" placeholder="เช่น Amoxicillin 500mg" 
-                        class="w-full p-5 bg-slate-50 rounded-[1.5rem] border-2 border-transparent focus:border-purple-300 focus:bg-white outline-none transition-all text-xl font-bold text-slate-700">
-                </div>
-                <div class="flex gap-4 pt-4">
-                    <button onclick="closeModal()" class="flex-1 py-5 rounded-2xl font-bold text-slate-400 hover:bg-slate-100 transition-all">ยกเลิก</button>
-                    <button onclick="saveNewMed()" class="flex-[2] py-5 bg-purple-up text-white rounded-[1.5rem] font-black shadow-xl shadow-purple-200 hover:scale-[1.02] active:scale-95 transition-all">ยืนยันบันทึก</button>
-                </div>
+    <nav class="w-72 bg-up-purple text-white sticky top-0 h-screen flex flex-col shadow-2xl z-50">
+        <div class="p-10 text-center border-b border-white/10">
+            <div class="w-20 h-20 bg-white rounded-[2rem] mx-auto mb-4 flex items-center justify-center shadow-xl border-b-4 border-up-gold overflow-hidden">
+                <img src="images.png" alt="UP Logo" class="w-14 h-14 object-contain">
             </div>
+            <h1 class="text-xl font-extrabold tracking-tight">UP HOSPITAL</h1>
+            <p class="text-[10px] text-up-gold font-black uppercase tracking-[0.2em] mt-1">คลังเวชภัณฑ์กลาง</p>
         </div>
-    </div>
 
-    <nav class="w-72 bg-purple-up text-white shadow-2xl flex-shrink-0 z-50 sticky top-0 h-screen flex flex-col">
-        <div class="p-10 text-center">
-            <h1 class="text-4xl font-black text-gold-up tracking-tighter italic">UP-MED</h1>
-            <p class="text-[10px] font-bold text-purple-300 mt-2 tracking-[0.3em] uppercase opacity-60">Inventory System</p>
-        </div>
-        <div class="px-6 space-y-4 flex-1 mt-6">
-            <button onclick="changePage('db')" id="btn-db" class="w-full text-left p-5 rounded-[1.5rem] bg-white/20 font-black transition-all flex items-center group">
-                <span class="mr-4 text-2xl group-hover:scale-125 transition-transform">📊</span> Dashboard
+        <div class="p-6 space-y-3 flex-1">
+            <button onclick="changePage('db')" id="btn-db" class="w-full flex items-center p-4 rounded-2xl bg-white/20 font-bold transition-all group">
+                <span class="mr-4 text-xl group-hover:scale-125 transition-transform">🏥</span> Dashboard
             </button>
-            <button onclick="changePage('in')" id="btn-in" class="w-full text-left p-5 rounded-[1.5rem] hover:bg-white/10 transition-all flex items-center opacity-60 font-black group">
-                <span class="mr-4 text-2xl group-hover:scale-125 transition-transform">📦</span> จัดการสต็อก
+            <button onclick="changePage('in')" id="btn-in" class="w-full flex items-center p-4 rounded-2xl hover:bg-white/10 transition-all opacity-60 font-bold group">
+                <span class="mr-4 text-xl group-hover:scale-125 transition-transform">📦</span> จัดการสต็อก
             </button>
         </div>
+
         <div class="p-8">
-            <div class="bg-black/20 p-4 rounded-3xl border border-white/5">
-                <p class="text-[10px] font-bold opacity-40 uppercase mb-1">Status</p>
-                <p class="text-xs font-bold text-emerald-400 flex items-center">
-                    <span class="w-2 h-2 bg-emerald-400 rounded-full mr-2 animate-ping"></span> ฐานข้อมูลเชื่อมต่อแล้ว
-                </p>
+            <div class="bg-black/20 rounded-[1.5rem] p-4 border border-white/5">
+                <div class="flex items-center text-up-gold text-xs font-bold">
+                    <span class="w-2 h-2 bg-up-gold rounded-full mr-2 animate-ping"></span>
+                    ระบบเชื่อมต่อสมบูรณ์
+                </div>
             </div>
         </div>
     </nav>
 
     <main class="flex-1 p-12 overflow-x-hidden">
         <div class="flex justify-between items-center mb-12">
-            <div class="relative group">
-                <input type="text" id="search" onkeyup="render()" placeholder="ค้นหารายการเวชภัณฑ์..." 
-                    class="pl-14 pr-8 py-5 w-[450px] rounded-[2rem] border-none shadow-sm outline-none focus:ring-4 focus:ring-purple-100 transition-all text-lg font-medium text-slate-600 bg-white">
-                <span class="absolute left-6 top-5 text-xl opacity-20 group-focus-within:opacity-100 transition-opacity">🔍</span>
+            <div class="relative w-full max-w-md group">
+                <input type="text" id="search" onkeyup="render()" placeholder="ค้นหาเวชภัณฑ์..." 
+                    class="w-full pl-14 pr-8 py-5 rounded-[2rem] border-none shadow-sm focus:ring-4 focus:ring-purple-100 outline-none transition-all text-lg font-medium bg-white">
+                <span class="absolute left-6 top-5 text-xl opacity-30 group-focus-within:opacity-100 transition-opacity">🔍</span>
             </div>
-            <button onclick="openModal()" class="bg-gold-up text-purple-900 px-10 py-5 rounded-[1.8rem] font-black shadow-lg shadow-gold-up/30 hover:scale-105 active:scale-95 transition-all flex items-center">
-                <span class="mr-2 text-xl">+</span> เพิ่มรายการใหม่
+            <button onclick="openModal()" class="bg-up-purple text-white px-10 py-5 rounded-[2rem] font-extrabold shadow-lg shadow-purple-900/20 hover:scale-105 active:scale-95 transition-all">
+                + เพิ่มรายการใหม่
             </button>
         </div>
 
         <div id="page-db" class="fade-in space-y-10">
             <div class="grid grid-cols-4 gap-8">
-                <div class="bg-white p-8 rounded-[2.5rem] shadow-sm card-hover transition-all border-b-[6px] border-purple-600 text-center">
-                    <p class="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">รวมทั้งหมด</p>
+                <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border-b-[6px] border-up-purple">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">รวมรายการ</p>
                     <h2 id="stat-total" class="text-5xl font-black text-slate-800">0</h2>
                 </div>
-                <div class="bg-white p-8 rounded-[2.5rem] shadow-sm card-hover transition-all border-b-[6px] border-blue-400 text-center">
-                    <p class="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">กำลังดำเนินการ</p>
+                <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border-b-[6px] border-blue-400">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">จัดทำแผน/ใบซื้อ</p>
                     <h2 id="stat-plan" class="text-5xl font-black text-blue-500">0</h2>
                 </div>
-                <div class="bg-white p-8 rounded-[2.5rem] shadow-sm card-hover transition-all border-b-[6px] border-orange-400 text-center">
-                    <p class="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">อยู่ระหว่างจัดส่ง</p>
-                    <h2 id="stat-wait" class="text-5xl font-black text-orange-500">0</h2>
+                <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border-b-[6px] border-up-gold">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">รอตรวจรับ</p>
+                    <h2 id="stat-wait" class="text-5xl font-black text-up-gold">0</h2>
                 </div>
-                <div class="bg-white p-8 rounded-[2.5rem] shadow-sm card-hover transition-all border-b-[6px] border-emerald-500 text-center">
-                    <p class="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">เข้าคลังแล้ว</p>
+                <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border-b-[6px] border-emerald-500">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">เข้าคลังแล้ว</p>
                     <h2 id="stat-done" class="text-5xl font-black text-emerald-500">0</h2>
                 </div>
             </div>
-            
-            <div class="bg-white rounded-[3rem] shadow-sm p-10 border border-slate-100">
-                <div class="flex justify-between items-center mb-8 px-2">
-                    <h3 class="text-2xl font-black text-slate-800 tracking-tight">รายการอัปเดตสถานะ</h3>
-                    <div class="flex items-center space-x-2 bg-emerald-50 px-4 py-2 rounded-full border border-emerald-100">
-                        <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                        <span class="text-[10px] text-emerald-600 font-black uppercase tracking-widest">Real-time Sync</span>
-                    </div>
-                </div>
-                <table class="w-full text-left">
-                    <thead class="text-slate-400 text-[11px] font-black uppercase tracking-[0.15em]">
+
+            <div class="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100">
+                <h3 class="text-2xl font-black mb-8 flex items-center">
+                    <span class="w-2 h-8 bg-up-purple rounded-full mr-4"></span>
+                    สถานะการจัดซื้อล่าสุด
+                </h3>
+                <table class="w-full">
+                    <thead class="text-left text-[11px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
                         <tr>
-                            <th class="pb-6 px-4">เวชภัณฑ์ / ความคืบหน้า</th>
-                            <th class="pb-6">สถานะปัจจุบัน</th>
-                            <th class="pb-6 text-right pr-6">วันที่เข้าคลัง</th>
+                            <th class="pb-6 px-4">รายการเวชภัณฑ์</th>
+                            <th class="pb-6">ความคืบหน้า</th>
+                            <th class="pb-6">สถานะขั้นตอน</th>
+                            <th class="pb-6 text-right pr-6">วันที่สำเร็จ</th>
                         </tr>
                     </thead>
                     <tbody id="table-db" class="divide-y divide-slate-50"></tbody>
@@ -134,32 +153,36 @@
         </div>
 
         <div id="page-in" class="hidden-page fade-in">
-            <div class="flex gap-3 mb-10 bg-slate-200/50 p-2 rounded-full w-fit">
+            <div class="flex gap-3 mb-10 bg-slate-200/50 p-2 rounded-[2rem] w-fit">
                 <button onclick="window.filterIn = 'all'; render()" id="tab-all" class="px-10 py-4 rounded-full font-black text-xs transition-all tab-active">ทั้งหมด</button>
-                <button onclick="window.filterIn = 'pending'; render()" id="tab-pending" class="px-10 py-4 rounded-full font-black text-xs transition-all tab-inactive">รอดำเนินการ</button>
-                <button onclick="window.filterIn = 'done'; render()" id="tab-done" class="px-10 py-4 rounded-full font-black text-xs transition-all tab-inactive">เข้าคลังแล้ว</button>
+                <button onclick="window.filterIn = 'pending'; render()" id="tab-pending" class="px-10 py-4 rounded-full font-black text-xs transition-all tab-inactive">กำลังดำเนินการ</button>
+                <button onclick="window.filterIn = 'done'; render()" id="tab-done" class="px-10 py-4 rounded-full font-black text-xs transition-all tab-inactive">สำเร็จแล้ว</button>
             </div>
-
-            <table class="w-full border-separate border-spacing-y-4">
-                <thead>
-                    <tr class="text-slate-400 text-[11px] font-black uppercase tracking-widest">
-                        <th class="px-10 pb-2 text-left">รายละเอียดเวชภัณฑ์</th>
-                        <th class="px-6 pb-2 text-left">สถานะ</th>
-                        <th class="px-6 pb-2 text-left">ของมาถึง</th>
-                        <th class="px-6 pb-2 text-left">รับเข้าคลัง</th>
-                        <th class="px-6 pb-2 text-center">จัดการ</th>
-                    </tr>
-                </thead>
-                <tbody id="table-in"></tbody>
-            </table>
+            <div id="table-in" class="space-y-6"></div>
         </div>
     </main>
+
+    <div id="medModal" class="fixed inset-0 bg-up-purple/40 backdrop-blur-md z-[600] hidden items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-[3rem] p-12 shadow-2xl fade-in relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-up-purple to-up-gold"></div>
+            <h2 class="text-3xl font-black mb-8 text-up-purple">ลงทะเบียนเวชภัณฑ์</h2>
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-3 ml-2 tracking-widest">ชื่อเรียกเวชภัณฑ์ / ขนาด</label>
+                    <input type="text" id="newMedName" placeholder="เช่น ยาพาราเซตามอล 500มก." class="w-full p-5 bg-slate-50 rounded-[1.5rem] border-2 border-transparent focus:border-purple-200 outline-none font-bold text-lg transition-all">
+                </div>
+                <div class="flex gap-4 pt-4">
+                    <button onclick="closeModal()" class="flex-1 py-5 font-bold text-slate-400 hover:bg-slate-50 rounded-2xl transition-all">ยกเลิก</button>
+                    <button onclick="saveNewMed()" class="flex-[2] py-5 bg-up-purple text-white rounded-[1.5rem] font-black shadow-xl shadow-purple-900/30">บันทึกข้อมูล</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Firebase Config (คงไว้ตามเดิมของคุณ)
         const firebaseConfig = {
             apiKey: "AIzaSyAmt2szWOjQBPfzfs7QfQVysgfaRzHyPa0",
             authDomain: "up-med-online.firebaseapp.com",
@@ -176,63 +199,49 @@
 
         window.meds = [];
         window.filterIn = 'all';
-        const statusList = ["กำลังจัดทำแผน", "กำลังจัดทำใบ", "จัดทำ PO", "บริษัทส่งยา", "รอตรวจรับ", "รับเข้าคลังแล้ว"];
-
-        const getProgress = (status) => {
-            const index = statusList.indexOf(status);
-            return ((index + 1) / statusList.length) * 100;
-        };
+        const statusList = ["จัดทำแผน", "จัดทำใบขอซื้อ", "อนุมัติ PO", "ส่งมอบเวชภัณฑ์", "รอตรวจรับ", "รับเข้าคลังแล้ว"];
 
         window.showToast = (msg, icon = '✅') => {
             const toast = document.getElementById('toast');
             document.getElementById('toast-msg').innerText = msg;
             document.getElementById('toast-icon').innerText = icon;
             toast.style.display = 'flex';
-            setTimeout(() => { toast.style.display = 'none'; }, 3000);
+            setTimeout(() => toast.style.display = 'none', 3000);
         };
 
-        window.openModal = () => {
-            document.getElementById('medModal').classList.remove('hidden');
-            document.getElementById('newMedName').focus();
-        };
-
+        window.openModal = () => document.getElementById('medModal').classList.remove('hidden');
         window.closeModal = () => {
             document.getElementById('medModal').classList.add('hidden');
             document.getElementById('newMedName').value = '';
-        };
+        }
 
         window.saveNewMed = () => {
             const name = document.getElementById('newMedName').value;
             if(name) {
-                const newId = Date.now();
-                const newMed = { id: newId, name, status: 'กำลังจัดทำแผน', arrivalDate: '', receivedDate: '' };
-                set(ref(db, 'meds/' + newId), newMed).then(() => {
-                    showToast("เพิ่ม " + name + " สำเร็จ");
-                    closeModal();
-                });
-            } else {
-                showToast("กรุณาระบุชื่อยา", "⚠️");
+                const id = Date.now();
+                set(ref(db, 'meds/' + id), { id, name, status: 'จัดทำแผน', arrivalDate: '', receivedDate: '' });
+                closeModal();
+                showToast("บันทึกสำเร็จ");
             }
         };
 
         onValue(medsRef, (snapshot) => {
             const data = snapshot.val();
-            window.meds = data ? Object.keys(data).map(key => ({...data[key]})) : [];
-            window.render(); 
+            window.meds = data ? Object.keys(data).map(k => data[k]) : [];
+            window.render();
         });
 
-        window.delMed = (id) => {
-            if(confirm("ยืนยันการลบรายการนี้?")) {
-                set(ref(db, 'meds/' + id), null).then(() => showToast("ลบข้อมูลแล้ว", "🗑️"));
+        window.updateField = (id, field, value) => {
+            const item = window.meds.find(m => m.id == id);
+            if(item) {
+                item[field] = value;
+                set(ref(db, 'meds/' + id), item);
+                showToast("อัปเดตแล้ว");
             }
         };
 
-        window.updateField = (id, field, value) => {
-            const item = window.meds.find(m => m.id === id);
-            if(item) {
-                item[field] = value;
-                set(ref(db, 'meds/' + id), item).then(() => showToast("อัปเดตสำเร็จ"));
-            }
+        window.delMed = (id) => {
+            if(confirm("ต้องการลบรายการนี้ใช่หรือไม่?")) set(ref(db, 'meds/' + id), null);
         };
 
         window.changePage = (page) => {
@@ -246,91 +255,87 @@
 
         window.render = () => {
             const q = document.getElementById('search').value.toLowerCase();
-            let filtered = window.meds.filter(m => m.name.toLowerCase().includes(q));
-            
-            // Tab Filter for Management Page
-            let filteredIn = [...filtered];
-            if(window.filterIn === 'pending') filteredIn = filtered.filter(m => m.status !== 'รับเข้าคลังแล้ว');
-            if(window.filterIn === 'done') filteredIn = filtered.filter(m => m.status === 'รับเข้าคลังแล้ว');
+            const filtered = window.meds.filter(m => m.name.toLowerCase().includes(q));
 
-            // UI Tab Update
-            ['all', 'pending', 'done'].forEach(t => {
-                const btn = document.getElementById('tab-' + t);
-                if(btn) btn.className = `px-10 py-4 rounded-full font-black text-xs transition-all ${window.filterIn === t ? 'tab-active' : 'tab-inactive'}`;
-            });
-
-            // Update Stats
+            // Statistics
             document.getElementById('stat-total').innerText = window.meds.length;
             document.getElementById('stat-plan').innerText = window.meds.filter(m => m.status.includes('จัดทำ')).length;
-            document.getElementById('stat-wait').innerText = window.meds.filter(m => m.status === 'บริษัทส่งยา' || m.status === 'รอตรวจรับ').length;
+            document.getElementById('stat-wait').innerText = window.meds.filter(m => m.status === 'รอตรวจรับ').length;
             document.getElementById('stat-done').innerText = window.meds.filter(m => m.status === 'รับเข้าคลังแล้ว').length;
 
             // Render Dashboard
             document.getElementById('table-db').innerHTML = filtered.map(m => {
-                const percent = getProgress(m.status);
-                const isFull = percent === 100;
+                const idx = statusList.indexOf(m.status);
+                const pct = ((idx + 1) / statusList.length) * 100;
+                let badgeStyle = "bg-purple-50 text-purple-600 border border-purple-100";
+                if(m.status.includes("PO")) badgeStyle = "bg-orange-50 text-orange-600 border border-orange-100";
+                if(m.status === "รับเข้าคลังแล้ว") badgeStyle = "bg-emerald-50 text-emerald-600 border border-emerald-100";
+
                 return `
-                <tr class="hover:bg-slate-50 transition-colors group">
-                    <td class="py-6 px-4">
-                        <div class="font-black text-slate-700 mb-2">${m.name}</div>
-                        <div class="flex items-center gap-4">
-                            <div class="progress-bar w-48"><div class="progress-fill ${isFull?'bg-emerald-500':'bg-purple-600'}" style="width:${percent}%"></div></div>
-                            <span class="text-[10px] text-slate-400 font-black">${Math.round(percent)}%</span>
+                <tr class="hover:bg-slate-50 transition-all border-b border-slate-50">
+                    <td class="py-7 px-4">
+                        <div class="font-black text-slate-700 text-lg leading-tight">${m.name}</div>
+                        <div class="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest">ID: UP-${m.id.toString().slice(-6)}</div>
+                    </td>
+                    <td class="py-7 w-64">
+                        <div class="flex items-center gap-3">
+                            <div class="up-progress-bg flex-1"><div class="up-progress-fill ${pct==100?'bg-done':''}" style="width:${pct}%"></div></div>
+                            <span class="text-xs font-black ${pct==100?'text-emerald-500':'text-up-purple'}">${Math.round(pct)}%</span>
                         </div>
                     </td>
-                    <td class="py-6">
-                        <span class="px-4 py-1.5 rounded-full text-[10px] font-black tracking-tight ${isFull?'bg-emerald-50 text-emerald-600 border border-emerald-100':'bg-blue-50 text-blue-600 border border-blue-100'}">
-                            ${m.status}
-                        </span>
-                    </td>
-                    <td class="py-6 text-right pr-6 text-slate-400 font-bold text-sm">${m.receivedDate || '-'}</td>
+                    <td class="py-7"><span class="status-pill ${badgeStyle}">${m.status}</span></td>
+                    <td class="py-7 text-right pr-6 font-bold text-slate-500 text-sm">${m.receivedDate || '-'}</td>
                 </tr>`;
-            }).join('') || '<tr><td colspan="3" class="py-20 text-center text-slate-300 italic font-bold">ไม่พบข้อมูล</td></tr>';
+            }).join('') || '<tr><td colspan="4" class="py-20 text-center text-slate-300 font-bold">ไม่มีข้อมูลเวชภัณฑ์</td></tr>';
 
-            // Render Management Table (Card Style)
+            // Render Management Page
+            let filteredIn = window.filterIn === 'all' ? filtered : 
+                             window.filterIn === 'pending' ? filtered.filter(m => m.status !== 'รับเข้าคลังแล้ว') : 
+                             filtered.filter(m => m.status === 'รับเข้าคลังแล้ว');
+
+            // Tab Buttons
+            ['all', 'pending', 'done'].forEach(t => {
+                document.getElementById('tab-' + t).className = `px-10 py-4 rounded-full font-black text-xs transition-all ${window.filterIn === t ? 'tab-active' : 'tab-inactive'}`;
+            });
+
             document.getElementById('table-in').innerHTML = filteredIn.map(m => {
                 const isDone = m.status === 'รับเข้าคลังแล้ว';
+                const currentStep = statusList.indexOf(m.status) + 1;
                 return `
-                <tr class="bg-white shadow-sm hover:shadow-md transition-all group overflow-hidden">
-                    <td class="p-8 rounded-l-[2.5rem] border-y border-l border-slate-50">
-                        <div class="flex items-center">
-                            <div class="w-14 h-14 rounded-2xl ${isDone?'bg-emerald-100 text-emerald-600':'bg-purple-100 text-purple-600'} flex items-center justify-center text-2xl mr-5 group-hover:rotate-6 transition-transform">
+                <div class="med-card p-8 border border-slate-100">
+                    <div class="flex flex-wrap lg:flex-nowrap items-center justify-between gap-6">
+                        <div class="flex items-center gap-6 flex-1 min-w-[300px]">
+                            <div class="w-16 h-16 ${isDone?'bg-emerald-100 text-emerald-600':'bg-purple-100 text-purple-600'} rounded-3xl flex items-center justify-center text-3xl shadow-inner group-hover:rotate-6 transition-transform">
                                 ${isDone?'✨':'📦'}
                             </div>
                             <div>
-                                <div class="font-black text-slate-800 text-lg leading-tight">${m.name}</div>
-                                <div class="text-[9px] text-slate-300 font-black tracking-[0.2em] mt-1 uppercase">ID: UP-${m.id.toString().slice(-6)}</div>
+                                <h4 class="font-black text-xl text-slate-800 leading-tight">${m.name}</h4>
+                                <div class="flex items-center gap-2 mt-2">
+                                    <span class="bg-slate-100 text-slate-500 text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest italic">Step ${currentStep} of 6</span>
+                                    <span class="text-[10px] text-slate-400 font-bold tracking-tight">${m.status}</span>
+                                </div>
                             </div>
                         </div>
-                    </td>
-                    <td class="p-6 border-y border-slate-50">
-                        <select onchange="window.updateField(${m.id}, 'status', this.value)" 
-                            class="bg-slate-50 border-none p-4 rounded-2xl text-xs font-black outline-none focus:ring-2 focus:ring-purple-200 cursor-pointer w-full text-slate-600 transition-all appearance-none">
-                            ${statusList.map(s => `<option value="${s}" ${m.status===s?'selected':''}>${s}</option>`).join('')}
-                        </select>
-                    </td>
-                    <td class="p-6 border-y border-slate-50">
-                        <div class="space-y-1">
-                            <label class="text-[9px] font-black text-orange-400 uppercase ml-1">Arrival Date</label>
-                            <input type="date" value="${m.arrivalDate}" onchange="window.updateField(${m.id}, 'arrivalDate', this.value)" 
-                                class="text-xs font-bold bg-slate-50 p-3 rounded-xl w-full border-none focus:ring-2 focus:ring-orange-100">
+
+                        <div class="flex flex-wrap gap-4 items-end bg-slate-50 p-5 rounded-[2rem] border border-slate-100">
+                            <div class="flex flex-col">
+                                <label class="text-[10px] font-black text-up-purple uppercase mb-2 ml-1 tracking-widest">ขั้นตอนปัจจุบัน</label>
+                                <select onchange="window.updateField(${m.id}, 'status', this.value)" class="bg-white px-5 py-3 rounded-xl text-sm font-black border-2 border-slate-200 focus:border-purple-400 outline-none cursor-pointer shadow-sm min-w-[180px]">
+                                    ${statusList.map(s => `<option value="${s}" ${m.status===s?'selected':''}>${s}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="flex flex-col">
+                                <label class="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">วันที่ตรวจรับ</label>
+                                <input type="date" value="${m.receivedDate}" onchange="window.updateField(${m.id}, 'receivedDate', this.value)" class="bg-white px-5 py-3 rounded-xl text-sm font-bold border-2 border-slate-200 focus:border-purple-400 outline-none shadow-sm">
+                            </div>
+                            <button onclick="window.delMed(${m.id})" class="w-12 h-12 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center shadow-sm">🗑️</button>
                         </div>
-                    </td>
-                    <td class="p-6 border-y border-slate-50">
-                        <div class="space-y-1">
-                            <label class="text-[9px] font-black text-emerald-400 uppercase ml-1">Received Date</label>
-                            <input type="date" value="${m.receivedDate}" onchange="window.updateField(${m.id}, 'receivedDate', this.value)" 
-                                class="text-xs font-bold bg-slate-50 p-3 rounded-xl w-full border-none focus:ring-2 focus:ring-emerald-100">
-                        </div>
-                    </td>
-                    <td class="p-6 rounded-r-[2.5rem] border-y border-r border-slate-50 text-center px-8">
-                        <button onclick="window.delMed(${m.id})" class="w-12 h-12 rounded-2xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center mx-auto hover:rotate-12">
-                            🗑️
-                        </button>
-                    </td>
-                </tr>
-                `;
-            }).join('') || '<tr><td colspan="5" class="py-32 text-center text-slate-300 font-black text-xl italic">ว่างเปล่า... ไม่มีรายการในหมวดนี้</td></tr>';
+                    </div>
+                    <div class="mt-8 flex gap-2 h-1.5">
+                        ${statusList.map((_, i) => `<div class="flex-1 rounded-full ${i < currentStep ? (isDone?'bg-emerald-400':'bg-purple-500') : 'bg-slate-200'} transition-all duration-500"></div>`).join('')}
+                    </div>
+                </div>`;
+            }).join('') || '<div class="text-center py-32 opacity-20 font-black text-2xl italic tracking-widest">ไม่พบรายการเวชภัณฑ์</div>';
         };
     </script>
 </body>
