@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UP-MED | ระบบจัดการเวชภัณฑ์ออนไลน์</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap');
+        body { font-family: 'Sarabun', sans-serif; }
+        .bg-purple-up { background-color: #602D91; }
+        .text-gold-up { color: #FDB813; }
+    </style>
+</head>
+<body class="bg-gray-100 flex min-h-screen">
+
+    <nav class="w-64 bg-purple-up text-white shadow-xl flex-shrink-0">
+        <div class="p-8 text-center border-b border-purple-800">
+            <h1 class="text-3xl font-bold text-gold-up">UP-MED</h1>
+            <p class="text-xs opacity-60 mt-1">ระบบบริหารคลังยาและเวชภัณฑ์ (Online)</p>
+        </div>
+        <div class="p-4 space-y-2">
+            <button onclick="changePage('db')" id="btn-db" class="w-full text-left p-4 rounded-xl bg-white/20 font-bold transition">📊 Dashboard</button>
+            <button onclick="changePage('in')" id="btn-in" class="w-full text-left p-4 rounded-xl hover:bg-white/10 transition">📦 หน้ารับเข้ายา</button>
+        </div>
+    </nav>
+
+    <main class="flex-1 p-8 overflow-x-hidden">
+        <div class="flex justify-between items-center mb-8">
+            <input type="text" id="search" onkeyup="render()" placeholder="🔍 ค้นหาชื่อยา..." class="px-6 py-3 w-80 rounded-2xl border-none shadow-sm outline-none focus:ring-2 focus:ring-purple-600">
+            <button onclick="addMed()" class="bg-[#FDB813] text-[#602D91] px-6 py-3 rounded-2xl font-bold shadow-md hover:scale-105 transition">+ เพิ่มรายการยา</button>
+        </div>
+
+        <div id="page-db">
+            <div class="grid grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border-l-8 border-[#602D91]"><p class="text-gray-400 text-sm">รายการทั้งหมด</p><h2 id="stat-total" class="text-3xl font-bold text-[#602D91]">0</h2></div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border-l-8 border-blue-400"><p class="text-gray-400 text-sm">กำลังจัดทำแผน/PO</p><h2 id="stat-plan" class="text-3xl font-bold text-blue-500">0</h2></div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border-l-8 border-orange-400"><p class="text-gray-400 text-sm">อยู่ระหว่างส่ง/ตรวจรับ</p><h2 id="stat-wait" class="text-3xl font-bold text-orange-500">0</h2></div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border-l-8 border-green-500"><p class="text-gray-400 text-sm">รับเข้าคลังสำเร็จ</p><h2 id="stat-done" class="text-3xl font-bold text-green-600">0</h2></div>
+            </div>
+            
+            <div class="bg-white rounded-3xl shadow-sm p-6 overflow-hidden">
+                <h3 class="font-bold mb-4 text-gray-700">สถานะล่าสุด</h3>
+                <table class="w-full text-left border-collapse">
+                    <thead class="text-gray-400 border-b text-sm">
+                        <tr>
+                            <th class="pb-4">ชื่อเวชภัณฑ์</th>
+                            <th class="pb-4">สถานะปัจจุบัน</th>
+                            <th class="pb-4">วันที่รับเข้า</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-db" class="divide-y"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="page-in" class="hidden">
+            <div class="bg-white rounded-3xl shadow-sm overflow-x-auto">
+                <table class="w-full text-left min-w-[800px]">
+                    <thead class="bg-gray-50 border-b text-sm">
+                        <tr>
+                            <th class="p-4 text-gray-600">ชื่อยา</th>
+                            <th class="p-4 text-gray-600">สถานะพัสดุ</th>
+                            <th class="p-4 text-gray-600">วันที่ของมาถึง</th>
+                            <th class="p-4 text-gray-600">วันที่รับเข้าคลัง</th>
+                            <th class="p-4 text-gray-600 text-center">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-in" class="divide-y"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // *** วาง Config ของคุณที่ก๊อปมาทับตรงนี้ ***
+        const firebaseConfig = {
+            apiKey: "AIza...",
+            authDomain: "up-med-online.firebaseapp.com",
+            databaseURL: "https://up-med-online-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "up-med-online",
+            storageBucket: "up-med-online.appspot.com",
+            messagingSenderId: "381838942970",
+            appId: "1:381838942970:web:8f83a02ba1544d54a95f43",
+            measurementId: "G-2BFLRT47F1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const medsRef = ref(db, 'meds');
+        
+        window.meds = []; // กำหนดเป็น Global เพื่อให้ฟังก์ชัน render เข้าถึงได้
+        const statusList = ["กำลังจัดทำแผน", "กำลังจัดทำใบ", "จัดทำ PO", "บริษัทส่งยา", "รอตรวจรับ", "รับเข้าคลังแล้ว"];
+
+        // 1. ดึงข้อมูลจาก Cloud และวาดตาราง
+        onValue(medsRef, (snapshot) => {
+            const data = snapshot.val();
+            window.meds = data ? Object.values(data) : [];
+            render(); 
+        });
+
+        // 2. ฟังก์ชันหลักในการบันทึก
+        window.saveToCloud = (data) => set(medsRef, data);
+
+        window.addMed = () => {
+            const name = prompt("ป้อนชื่อยา/เวชภัณฑ์:");
+            if(name) {
+                const newMed = {
+                    id: Date.now(),
+                    name: name,
+                    status: 'กำลังจัดทำแผน',
+                    arrivalDate: '',
+                    receivedDate: ''
+                };
+                saveToCloud([newMed, ...window.meds]);
+            }
+        };
+
+        window.delMed = (id) => {
+            if(confirm("ลบรายการนี้ออกจากระบบ?")) {
+                saveToCloud(window.meds.filter(m => m.id !== id));
+            }
+        };
+
+        window.updateField = (id, field, value) => {
+            const updated = window.meds.map(m => m.id === id ? {...m, [field]: value} : m);
+            saveToCloud(updated);
+        };
+
+        // 3. ฟังก์ชันควบคุมหน้าจอ (UI)
+        window.changePage = (page) => {
+            document.getElementById('page-db').classList.toggle('hidden', page !== 'db');
+            document.getElementById('page-in').classList.toggle('hidden', page !== 'in');
+            document.getElementById('btn-db').classList.toggle('bg-white/20', page === 'db');
+            document.getElementById('btn-in').classList.toggle('bg-white/20', page === 'in');
+        };
+
+        window.render = () => {
+            const q = document.getElementById('search').value.toLowerCase();
+            const filtered = window.meds.filter(m => m.name.toLowerCase().includes(q));
+
+            // Stats
+            document.getElementById('stat-total').innerText = window.meds.length;
+            document.getElementById('stat-plan').innerText = window.meds.filter(m => m.status.includes('จัดทำ')).length;
+            document.getElementById('stat-wait').innerText = window.meds.filter(m => m.status === 'บริษัทส่งยา' || m.status === 'รอตรวจรับ').length;
+            document.getElementById('stat-done').innerText = window.meds.filter(m => m.status === 'รับเข้าคลังแล้ว').length;
+
+            // Table Dashboard
+            document.getElementById('table-db').innerHTML = filtered.map(m => `
+                <tr>
+                    <td class="py-4 font-bold text-purple-900">${m.name}</td>
+                    <td class="py-4">
+                        <span class="px-3 py-1 rounded-full text-xs font-bold ${m.status === 'รับเข้าคลังแล้ว' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-500'}">
+                            ${m.status}
+                        </span>
+                    </td>
+                    <td class="py-4 text-gray-500 text-sm">${m.receivedDate || '-'}</td>
+                </tr>
+            `).join('');
+
+            // Table Input
+            document.getElementById('table-in').innerHTML = filtered.map(m => `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="p-4 font-bold text-gray-700">${m.name}</td>
+                    <td class="p-4">
+                        <select onchange="updateField(${m.id}, 'status', this.value)" class="bg-white border border-gray-200 p-2 rounded-lg text-sm outline-none">
+                            ${statusList.map(s => `<option ${m.status===s?'selected':''}>${s}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td class="p-4">
+                        <input type="date" value="${m.arrivalDate}" onchange="updateField(${m.id}, 'arrivalDate', this.value)" class="bg-gray-50 border border-gray-200 p-1 rounded text-sm">
+                    </td>
+                    <td class="p-4">
+                        <input type="date" value="${m.receivedDate}" onchange="updateField(${m.id}, 'receivedDate', this.value)" class="bg-gray-50 border border-gray-200 p-1 rounded text-sm">
+                    </td>
+                    <td class="p-4 text-center">
+                        <button onclick="delMed(${m.id})" class="text-red-300 hover:text-red-600">🗑️ ลบ</button>
+                    </td>
+                </tr>
+            `).join('');
+        };
+    </script>
+</body>
+</html>
