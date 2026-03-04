@@ -76,26 +76,30 @@
         </div>
 
         <div id="page-db" class="fade-in space-y-6">
-            <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                <div onclick="window.goToFilter('all')" class="stat-btn bg-white p-6 rounded-[1.5rem] shadow-sm border-b-4 border-up-purple">
+            <div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
+                <div onclick="window.goToFilter('all')" class="stat-btn bg-white p-5 rounded-[1.5rem] shadow-sm border-b-4 border-up-purple">
                     <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">รวมทั้งหมด</p>
-                    <h2 id="stat-total" class="text-3xl font-black text-slate-800">0</h2>
+                    <h2 id="stat-total" class="text-2xl font-black text-slate-800">0</h2>
                 </div>
-                <div onclick="window.goToFilter('today')" class="stat-btn bg-purple-100 p-6 rounded-[1.5rem] shadow-sm border-b-4 border-up-purple">
+                <div onclick="window.goToFilter('out')" class="stat-btn bg-red-100 p-5 rounded-[1.5rem] shadow-sm border-b-4 border-red-600">
+                    <p class="text-[9px] font-black text-red-600 uppercase tracking-widest mb-1">ยาหมด (0)</p>
+                    <h2 id="stat-out" class="text-2xl font-black text-red-700">0</h2>
+                </div>
+                <div onclick="window.goToFilter('low')" class="stat-btn bg-white p-5 rounded-[1.5rem] shadow-sm border-b-4 border-orange-400">
+                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">สต็อกต่ำกว่าเกณฑ์</p>
+                    <h2 id="stat-warning" class="text-2xl font-black text-orange-500">0</h2>
+                </div>
+                <div onclick="window.goToFilter('today')" class="stat-btn bg-purple-50 p-5 rounded-[1.5rem] shadow-sm border-b-4 border-up-purple">
                     <p class="text-[9px] font-black text-up-purple uppercase tracking-widest mb-1">รับเข้าวันนี้</p>
-                    <h2 id="stat-today" class="text-3xl font-black text-up-purple">0</h2>
+                    <h2 id="stat-today" class="text-2xl font-black text-up-purple">0</h2>
                 </div>
-                <div onclick="window.goToFilter('low')" class="stat-btn bg-white p-6 rounded-[1.5rem] shadow-sm border-b-4 border-orange-400">
-                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">สต็อกต่ำ</p>
-                    <h2 id="stat-warning" class="text-3xl font-black text-orange-500">0</h2>
+                <div onclick="window.goToFilter('done')" class="stat-btn bg-white p-5 rounded-[1.5rem] shadow-sm border-b-4 border-emerald-500">
+                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">เข้าคลังแล้ว</p>
+                    <h2 id="stat-done" class="text-2xl font-black text-emerald-500">0</h2>
                 </div>
-                <div onclick="window.goToFilter('done')" class="stat-btn bg-white p-6 rounded-[1.5rem] shadow-sm border-b-4 border-emerald-500">
-                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">ปกติ</p>
-                    <h2 id="stat-done" class="text-3xl font-black text-emerald-500">0</h2>
-                </div>
-                <div onclick="window.goToFilter('expired')" class="stat-btn bg-red-50 p-6 rounded-[1.5rem] shadow-sm border-b-4 border-red-500">
-                    <p class="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1">ใกล้หมดอายุ</p>
-                    <h2 id="stat-expired" class="text-3xl font-black text-red-600">0</h2>
+                <div onclick="window.goToFilter('expired')" class="stat-btn bg-red-50 p-5 rounded-[1.5rem] shadow-sm border-b-4 border-red-500">
+                    <p class="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1">หมดอายุ/ใกล้หมด</p>
+                    <h2 id="stat-expired" class="text-2xl font-black text-red-600">0</h2>
                 </div>
             </div>
             
@@ -113,7 +117,7 @@
                             <tr class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                 <th class="px-4 py-2">วัน-เวลาที่บันทึก</th>
                                 <th class="px-4 py-2">ชื่อเวชภัณฑ์</th>
-                                <th class="px-4 py-2">จำนวน</th>
+                                <th class="px-4 py-2 text-center">คงเหลือ</th>
                                 <th class="px-4 py-2 text-right">แหล่งข้อมูล</th>
                             </tr>
                         </thead>
@@ -121,23 +125,16 @@
                     </table>
                 </div>
             </div>
-
-            <div class="bg-purple-50 p-6 rounded-[2rem] border border-purple-100 flex items-center justify-between">
-                <div>
-                    <h3 class="text-lg font-black text-up-purple">ระบบเชื่อมต่อสำเร็จ ✅</h3>
-                    <p class="text-slate-500 text-sm">แสดงข้อมูลจาก Google Sheets และ Real-time Database</p>
-                </div>
-                <span class="text-4xl hidden md:block">📋</span>
-            </div>
         </div>
 
         <div id="page-in" class="hidden-page fade-in">
             <div class="flex flex-wrap gap-2 mb-6 bg-slate-200/50 p-1.5 rounded-[1.2rem] w-full lg:w-fit">
-                <button onclick="window.setFilter('all')" id="tab-all" class="flex-1 lg:flex-none px-5 py-2.5 rounded-full font-black text-[10px] tab-active">ทั้งหมด</button>
-                <button onclick="window.setFilter('today')" id="tab-today" class="flex-1 lg:flex-none px-5 py-2.5 rounded-full font-black text-[10px] tab-inactive">วันนี้ ✨</button>
-                <button onclick="window.setFilter('low')" id="tab-low" class="flex-1 lg:flex-none px-5 py-2.5 rounded-full font-black text-[10px] tab-inactive">สต็อกต่ำ ⚠️</button>
-                <button onclick="window.setFilter('done')" id="tab-done" class="flex-1 lg:flex-none px-5 py-2.5 rounded-full font-black text-[10px] tab-inactive">เข้าคลังแล้ว</button>
-                <button onclick="window.setFilter('expired')" id="tab-expired" class="flex-1 lg:flex-none px-5 py-2.5 rounded-full font-black text-[10px] tab-inactive">หมดอายุ/90วัน ⏰</button>
+                <button onclick="window.setFilter('all')" id="tab-all" class="flex-1 lg:flex-none px-4 py-2.5 rounded-full font-black text-[10px] tab-active">ทั้งหมด</button>
+                <button onclick="window.setFilter('out')" id="tab-out" class="flex-1 lg:flex-none px-4 py-2.5 rounded-full font-black text-[10px] tab-inactive text-red-600">ยาหมด ❌</button>
+                <button onclick="window.setFilter('low')" id="tab-low" class="flex-1 lg:flex-none px-4 py-2.5 rounded-full font-black text-[10px] tab-inactive text-orange-600">สต็อกต่ำ ⚠️</button>
+                <button onclick="window.setFilter('today')" id="tab-today" class="flex-1 lg:flex-none px-4 py-2.5 rounded-full font-black text-[10px] tab-inactive">วันนี้ ✨</button>
+                <button onclick="window.setFilter('done')" id="tab-done" class="flex-1 lg:flex-none px-4 py-2.5 rounded-full font-black text-[10px] tab-inactive">เข้าคลังแล้ว</button>
+                <button onclick="window.setFilter('expired')" id="tab-expired" class="flex-1 lg:flex-none px-4 py-2.5 rounded-full font-black text-[10px] tab-inactive">หมดอายุ ⏰</button>
             </div>
 
             <div class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
@@ -146,7 +143,7 @@
                         <thead>
                             <tr class="bg-slate-50 border-b border-slate-100 text-[11px] font-black text-slate-500 uppercase tracking-wider">
                                 <th class="px-6 py-5">ชื่อเวชภัณฑ์</th>
-                                <th class="px-6 py-5 text-center">คงเหลือ</th>
+                                <th class="px-6 py-5 text-center">คงเหลือ (ขั้นต่ำ)</th>
                                 <th class="px-6 py-5">กลุ่มสินค้า / วันหมดอายุ</th>
                                 <th class="px-6 py-5">สถานะ</th>
                                 <th class="px-6 py-5 text-right">แหล่งข้อมูล</th>
@@ -182,9 +179,22 @@
         window.firebaseMeds = [];
         window.filterIn = 'all';
 
+        // ปรับปรุงฟังก์ชันแปลงวันที่ให้แม่นยำขึ้น
         function parseSheetDate(dateStr) {
             if (!dateStr) return null;
-            const d = new Date(dateStr);
+            // ลองลบช่องว่าง
+            const cleanStr = String(dateStr).trim();
+            // จัดการกรณี DD/MM/YYYY
+            if (cleanStr.includes('/')) {
+                const p = cleanStr.split('/');
+                if (p.length === 3) {
+                    let d = parseInt(p[0]), m = parseInt(p[1]) - 1, y = parseInt(p[2]);
+                    if (y > 2500) y -= 543; // แปลง พ.ศ. เป็น ค.ศ.
+                    const dateObj = new Date(y, m, d);
+                    return isNaN(dateObj.getTime()) ? null : dateObj;
+                }
+            }
+            const d = new Date(cleanStr);
             return isNaN(d.getTime()) ? null : d;
         }
 
@@ -196,6 +206,7 @@
                     id: 'sheet-' + Math.random(),
                     name: item["ชื่อสินค้า"],
                     stock: parseInt(item["จำนวนสินค้าคงเหลือ"]) || 0,
+                    minStock: parseInt(item["จำนวนขั้นต่ำ"]) || 0, // อ้างอิงจาก Google Sheets
                     status: (item["Comment"] === "OK") ? "รับเข้าคลังแล้ว" : (item["Comment"] || "ปกติ"),
                     category: item["กลุ่มสินค้า"] || "ทั่วไป",
                     expiry: item["วันหมดอายุ"] || item["Expiry"] || null,
@@ -208,27 +219,38 @@
 
         onValue(medsRef, (snap) => {
             const data = snap.val();
-            window.firebaseMeds = data ? Object.keys(data).map(k => ({ ...data[k], id: k, isSheet: false })) : [];
+            window.firebaseMeds = data ? Object.keys(data).map(k => ({ 
+                ...data[k], 
+                id: k, 
+                isSheet: false,
+                minStock: parseInt(data[k].minStock) || 0 // กรณี Firebase มี minStock
+            })) : [];
             window.render();
         });
 
         window.render = () => {
             const q = document.getElementById('search').value.toLowerCase();
             const combined = [...window.sheetMeds, ...window.firebaseMeds];
+            
             const now = new Date();
+            now.setHours(0,0,0,0); 
             const todayStr = now.toISOString().split('T')[0]; 
             const limit90Days = new Date(); 
             limit90Days.setDate(now.getDate() + 90);
 
-            const getTodayItems = (list) => list.filter(m => m.timestamp && m.timestamp.includes(todayStr));
+            // Helpers
+            const getTodayItems = (list) => list.filter(m => m.timestamp && String(m.timestamp).includes(todayStr));
             const getExpiredItems = (list) => list.filter(m => {
                 const expDate = parseSheetDate(m.expiry);
-                return expDate && expDate <= limit90Days;
+                return expDate !== null && expDate <= limit90Days;
             });
+            const isLow = (m) => m.stock > 0 && m.stock < (m.minStock || 0);
 
+            // Update Stats
             document.getElementById('stat-total').innerText = combined.length;
+            document.getElementById('stat-out').innerText = combined.filter(m => m.stock <= 0).length;
+            document.getElementById('stat-warning').innerText = combined.filter(isLow).length;
             document.getElementById('stat-today').innerText = getTodayItems(combined).length;
-            document.getElementById('stat-warning').innerText = combined.filter(m => m.stock > 0 && m.stock < 10).length;
             document.getElementById('stat-done').innerText = combined.filter(m => m.status === 'รับเข้าคลังแล้ว').length;
             document.getElementById('stat-expired').innerText = getExpiredItems(combined).length;
 
@@ -241,25 +263,31 @@
                 <tr class="bg-slate-50/50 hover:bg-slate-100 transition-colors">
                     <td class="px-4 py-3 rounded-l-xl"><p class="text-[11px] font-bold text-slate-600">${m.timestamp}</p></td>
                     <td class="px-4 py-3"><p class="text-sm font-black text-slate-800 line-clamp-1">${m.name}</p></td>
-                    <td class="px-4 py-3"><span class="bg-white px-3 py-1 rounded-full text-xs font-black shadow-sm border border-slate-100">${m.stock}</span></td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="bg-white px-3 py-1 rounded-full text-xs font-black shadow-sm border border-slate-100 ${m.stock <= 0 ? 'text-red-600' : isLow(m) ? 'text-orange-500' : ''}">
+                            ${m.stock}
+                        </span>
+                    </td>
                     <td class="px-4 py-3 text-right rounded-r-xl">
                         <span class="status-pill ${m.isSheet ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}">${m.isSheet ? 'Sheets' : 'Firebase'}</span>
                     </td>
                 </tr>
             `).join('') || '<tr><td colspan="4" class="text-center py-4 text-slate-400 italic text-sm">ไม่มีข้อมูลการบันทึกล่าสุด</td></tr>';
 
+            // Filter Logic
             let filtered = combined.filter(m => m.name.toLowerCase().includes(q));
+            if (window.filterIn === 'out') filtered = filtered.filter(m => m.stock <= 0);
+            if (window.filterIn === 'low') filtered = filtered.filter(isLow);
             if (window.filterIn === 'today') filtered = getTodayItems(filtered);
-            if (window.filterIn === 'low') filtered = filtered.filter(m => m.stock < 10);
             if (window.filterIn === 'done') filtered = filtered.filter(m => m.status === 'รับเข้าคลังแล้ว');
             if (window.filterIn === 'expired') filtered = getExpiredItems(filtered);
 
             document.getElementById('table-in-body').innerHTML = filtered.map(m => {
                 const expDate = parseSheetDate(m.expiry);
-                const isExpired = expDate && expDate < now;
-                const isNearExp = expDate && expDate <= limit90Days && !isExpired;
-                const isOutOfStock = m.stock === 0;
-                const isLowStock = m.stock > 0 && m.stock < 10;
+                const isExpired = expDate !== null && expDate < now;
+                const isNearExp = expDate !== null && expDate <= limit90Days && !isExpired;
+                const isOutOfStock = m.stock <= 0;
+                const isLowStock = isLow(m);
 
                 return `
                 <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
@@ -270,11 +298,14 @@
                         </div>
                     </td>
                     <td class="px-6 py-4 text-center">
-                        ${m.isSheet ? 
-                            `<span class="text-lg font-black ${isOutOfStock ? 'text-red-500' : isLowStock ? 'text-orange-500' : 'text-slate-700'}">${m.stock}</span>` :
-                            `<input type="number" value="${m.stock}" onchange="window.updateStock('${m.id}', this.value)" 
-                             class="w-20 text-center bg-slate-100 border-none rounded-lg py-1 text-lg font-black focus:ring-2 focus:ring-up-purple outline-none ${isOutOfStock ? 'text-red-500' : isLowStock ? 'text-orange-500' : ''}">`
-                        }
+                        <div class="flex flex-col items-center">
+                            ${m.isSheet ? 
+                                `<span class="text-lg font-black ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-orange-500' : 'text-slate-700'}">${m.stock}</span>` :
+                                `<input type="number" value="${m.stock}" onchange="window.updateStock('${m.id}', this.value)" 
+                                 class="w-20 text-center bg-slate-100 border-none rounded-lg py-1 text-lg font-black focus:ring-2 focus:ring-up-purple outline-none ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-orange-500' : ''}">`
+                            }
+                            <span class="text-[9px] font-bold text-slate-400">Min: ${m.minStock || 0}</span>
+                        </div>
                     </td>
                     <td class="px-6 py-4">
                         <div class="flex flex-col">
@@ -285,8 +316,10 @@
                         </div>
                     </td>
                     <td class="px-6 py-4">
-                        ${isExpired ? '<span class="status-pill bg-red-100 text-red-600 animate-pulse-slow">หมดอายุ!</span>' : 
+                        ${isOutOfStock ? '<span class="status-pill bg-red-600 text-white animate-pulse">สินค้าหมด!</span>' :
+                          isExpired ? '<span class="status-pill bg-red-100 text-red-600 animate-pulse-slow">หมดอายุแล้ว!</span>' : 
                           isNearExp ? '<span class="status-pill bg-orange-100 text-orange-600">ใกล้หมดอายุ</span>' : 
+                          isLowStock ? '<span class="status-pill bg-orange-50 text-orange-500">สต็อกต่ำ</span>' :
                           `<span class="status-pill ${m.status==='รับเข้าคลังแล้ว'?'bg-emerald-50 text-emerald-600':'bg-slate-100 text-slate-500'}">${m.status}</span>`}
                     </td>
                     <td class="px-6 py-4 text-right">
@@ -308,15 +341,18 @@
             document.getElementById('btn-db').classList.toggle('opacity-60', p !== 'db');
             document.getElementById('btn-in').classList.toggle('bg-white/20', p === 'in');
             document.getElementById('btn-in').classList.toggle('opacity-60', p !== 'in');
-            if(window.innerWidth < 1024) window.toggleMenu();
+            if(window.innerWidth < 1024 && document.getElementById('sidebar').classList.contains('active')) window.toggleMenu();
         };
 
         window.goToFilter = (f) => { window.changePage('in'); window.setFilter(f); };
         window.setFilter = (f) => {
             window.filterIn = f;
-            ['all', 'today', 'low', 'done', 'expired'].forEach(t => {
+            ['all', 'out', 'low', 'today', 'done', 'expired'].forEach(t => {
                 const el = document.getElementById('tab-'+t);
-                if(el) el.className = (f===t) ? 'flex-1 lg:flex-none px-5 py-2.5 rounded-full font-black text-[10px] tab-active' : 'flex-1 lg:flex-none px-5 py-2.5 rounded-full font-black text-[10px] tab-inactive';
+                if(el) {
+                    if(f===t) el.className = el.className.replace('tab-inactive', 'tab-active');
+                    else el.className = el.className.replace('tab-active', 'tab-inactive');
+                }
             });
             window.render();
         };
