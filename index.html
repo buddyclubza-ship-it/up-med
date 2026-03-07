@@ -5,149 +5,162 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UP Hospital Inventory | ระบบจัดการเวชภัณฑ์</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700;800&display=swap');
-        :root { --up-purple: #602D91; --up-gold: #FDB813; }
-        body { font-family: 'Sarabun', sans-serif; background-color: #F1F5F9; color: #1E293B; }
-        .bg-up-purple { background-color: var(--up-purple); }
-        .text-up-purple { color: var(--up-purple); }
-        .text-up-gold { color: var(--up-gold); }
-        
-        @media (max-width: 1024px) {
-            nav { position: fixed; left: -100%; z-index: 1000; transition: 0.4s; height: 100vh; }
-            nav.active { left: 0; }
-            .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 900; backdrop-filter: blur(4px); }
-            .overlay.active { display: block; }
+    <link rel="stylesheet" href="style.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'up-purple': '#4c1d95',
+                        'up-gold': '#fbbf24',
+                    }
+                }
+            }
         }
-
-        .status-pill { padding: 4px 10px; border-radius: 8px; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; white-space: nowrap; }
-        .hidden-page { display: none; }
-        .fade-in { animation: fadeIn 0.4s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .tab-active { background: var(--up-purple) !important; color: white !important; box-shadow: 0 8px 15px rgba(96, 45, 145, 0.2); opacity: 1 !important; }
-        .tab-inactive { background: white; color: #64748B; border: 1px solid #E2E8F0; }
-        .stat-btn { transition: all 0.2s; cursor: pointer; }
-        .stat-btn:active { transform: scale(0.95); }
-
-        .custom-scrollbar::-webkit-scrollbar { height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-    </style>
+    </script>
 </head>
-<body class="flex min-h-screen flex-col lg:flex-row">
+<body class="flex min-h-screen flex-col lg:flex-row bg-slate-50">
 
     <div class="overlay" id="overlay" onclick="window.toggleMenu()"></div>
 
-    <nav id="sidebar" class="w-72 bg-up-purple text-white h-screen flex flex-col shadow-2xl shrink-0">
-        <div class="p-10 text-center border-b border-white/10 hidden lg:block">
-            <div class="w-24 h-24 bg-white rounded-[2rem] mx-auto mb-4 flex items-center justify-center shadow-2xl border-b-4 border-up-gold overflow-hidden">
-                <img src="images.png" alt="UP Logo" class="w-16 h-16 object-contain">
+    <div id="med-detail-modal" class="modal">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="window.closeMedModal()"></div>
+        <div class="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl relative overflow-hidden fade-in flex flex-col mx-4">
+            <div class="p-8 border-b border-slate-100 bg-up-purple text-white relative">
+                <h3 id="med-detail-title" class="text-xl font-black">รายละเอียดเวชภัณฑ์</h3>
+                <p id="med-detail-cat" class="text-xs text-up-gold font-bold uppercase tracking-widest mt-1">Category</p>
+                <button onclick="window.closeMedModal()" class="absolute top-8 right-8 w-10 h-10 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-all text-xl">✕</button>
             </div>
-            <h1 class="text-xl font-black tracking-tight leading-none">UP HOSPITAL</h1>
-            <p class="text-[10px] text-up-gold font-black uppercase tracking-[0.2em] mt-2">Inventory System</p>
+            <div class="p-8 space-y-6">
+                <div class="grid grid-cols-2 gap-4 text-center">
+                    <div class="bg-slate-50 p-4 rounded-2xl">
+                        <p class="text-[10px] font-black text-slate-400 uppercase mb-1">คงเหลือปัจจุบัน</p>
+                        <p id="med-detail-stock" class="text-2xl font-black text-up-purple">0</p>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-2xl">
+                        <p class="text-[10px] font-black text-slate-400 uppercase mb-1">วันหมดอายุ (EXP)</p>
+                        <p id="med-detail-exp" class="text-lg font-black text-red-500">-</p>
+                    </div>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">เลขล็อต (LOT NO.)</p>
+                    <p id="med-detail-lot" class="text-lg font-black text-slate-700">-</p>
+                </div>
+                <div id="med-detail-status-box" class="p-4 rounded-2xl border-2 text-center font-black bg-white border-slate-100">
+                    สถานะ: <span id="med-detail-status-text">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <nav id="sidebar" class="w-full lg:w-72 bg-up-purple text-white lg:h-screen flex flex-col shadow-2xl shrink-0 z-50">
+        <div class="p-8 lg:p-10 text-center border-b border-white/10 flex lg:flex-col items-center justify-between lg:justify-center">
+            <div class="w-16 h-16 lg:w-24 lg:h-24 bg-white rounded-2xl lg:rounded-[2rem] flex items-center justify-center shadow-2xl border-b-4 border-up-gold overflow-hidden">
+                <img src="images.png" alt="UP Logo" class="w-10 h-10 lg:w-16 lg:h-16 object-contain">
+            </div>
+            <div class="text-left lg:text-center mt-0 lg:mt-4 ml-4 lg:ml-0">
+                <h1 class="text-lg lg:text-xl font-black tracking-tight leading-none">UP HOSPITAL</h1>
+                <p class="text-[9px] lg:text-[10px] text-up-gold font-black uppercase tracking-[0.2em] mt-1 lg:mt-2">Inventory System</p>
+            </div>
+            <button onclick="window.toggleMenu()" class="lg:hidden text-2xl">☰</button>
         </div>
         <div class="p-6 space-y-3 flex-1">
-            <button onclick="window.changePage('db')" id="btn-db" class="w-full flex items-center p-4 rounded-2xl bg-white/20 font-bold transition-all">
+            <button onclick="window.changePage('db')" id="btn-db" class="w-full flex items-center p-4 rounded-2xl bg-white/20 font-bold transition-all opacity-100">
                 <span class="mr-4 text-xl">🏥</span> Dashboard
             </button>
             <button onclick="window.changePage('in')" id="btn-in" class="w-full flex items-center p-4 rounded-2xl hover:bg-white/10 transition-all opacity-60 font-bold">
                 <span class="mr-4 text-xl">📦</span> จัดการสต็อก
             </button>
-            <button onclick="window.goToFilter('expired')" id="btn-exp-side" class="w-full flex items-center p-4 rounded-2xl hover:bg-white/10 transition-all opacity-60 font-bold text-red-300">
-                <span class="mr-4 text-xl">⏰</span> ยาใกล้หมดอายุ 
-            </button>
         </div>
     </nav>
 
     <main class="flex-1 p-4 lg:p-12 overflow-x-hidden">
-        <header class="lg:hidden mb-6 flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm">
-            <span class="font-black text-up-purple uppercase text-sm">UP Hospital</span>
-            <button onclick="window.toggleMenu()" class="text-2xl text-up-purple">☰</button>
-        </header>
-
-        <div id="page-db" class="fade-in space-y-6">
+        
+        <div id="page-db" class="fade-in space-y-8">
             <div class="mb-8">
-                <h2 class="text-2xl font-black text-slate-800">คลังยากลางโรงพยาบาลมหาวิทยาลัยพะเยา</h2>
-                <p class="text-sm text-slate-500 font-bold">ภาพรวมคลังเวชภัณฑ์ประจำวันนี้</p>
+                <h2 class="text-2xl lg:text-3xl font-black text-slate-800">คลังยากลางโรงพยาบาลมหาวิทยาลัยพะเยา</h2>
+                <p class="text-sm text-slate-500 font-bold mt-1">ภาพรวมการจัดการเวชภัณฑ์แบบ Real-time</p>
             </div>
 
-            <div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
-                <div onclick="window.goToFilter('all')" class="stat-btn bg-white p-5 rounded-[1.5rem] shadow-sm border-b-4 border-up-purple text-center">
-                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">รวมทั้งหมด</p>
-                    <h2 id="stat-total" class="text-2xl font-black text-slate-800">0</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div onclick="window.goToFilter('all')" class="stat-btn cursor-pointer bg-white p-6 rounded-[2.5rem] shadow-sm border-b-4 border-up-purple text-center hover:scale-105 transition-transform">
+                    <p class="text-slate-500 text-sm font-bold mb-2">เวชภัณฑ์ทั้งหมด</p>
+                    <p class="text-4xl font-black text-up-purple" id="stat-total">0</p>
                 </div>
-                <div onclick="window.goToFilter('out')" class="stat-btn bg-red-100 p-5 rounded-[1.5rem] shadow-sm border-b-4 border-red-600 text-center">
-                    <p class="text-[9px] font-black text-red-600 uppercase tracking-widest mb-1">ยาหมด</p>
-                    <h2 id="stat-out" class="text-2xl font-black text-red-700">0</h2>
+
+                <div onclick="window.goToFilter('low')" class="stat-btn cursor-pointer bg-orange-50 p-6 rounded-[2.5rem] shadow-sm border-b-4 border-orange-500 text-center hover:scale-105 transition-transform">
+                    <p class="text-orange-600 text-sm font-bold mb-2">ยาคงเหลือน้อย (ควรเติม)</p>
+                    <p class="text-4xl font-black text-orange-600" id="stat-low">0</p>
                 </div>
-                <div onclick="window.goToFilter('low')" class="stat-btn bg-white p-5 rounded-[1.5rem] shadow-sm border-b-4 border-orange-400 text-center">
-                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">สต็อกต่ำ</p>
-                    <h2 id="stat-warning" class="text-2xl font-black text-orange-500">0</h2>
-                </div>
-                <div onclick="window.goToFilter('today')" class="stat-btn bg-purple-50 p-5 rounded-[1.5rem] shadow-sm border-b-4 border-up-purple text-center">
-                    <p class="text-[9px] font-black text-up-purple uppercase tracking-widest mb-1">รับวันนี้</p>
-                    <h2 id="stat-today" class="text-2xl font-black text-up-purple">0</h2>
-                </div>
-                <div onclick="window.goToFilter('done')" class="stat-btn bg-white p-5 rounded-[1.5rem] shadow-sm border-b-4 border-emerald-500 text-center">
-                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">เข้าคลังแล้ว</p>
-                    <h2 id="stat-done" class="text-2xl font-black text-emerald-500">0</h2>
-                </div>
-                <div onclick="window.goToFilter('expired')" class="stat-btn bg-red-50 p-5 rounded-[1.5rem] shadow-sm border-b-4 border-red-500 text-center">
-                    <p class="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1">หมดอายุ/ใกล้</p>
-                    <h2 id="stat-expired" class="text-2xl font-black text-red-600">0</h2>
+
+                <div onclick="window.goToFilter('out')" class="stat-btn cursor-pointer bg-red-50 p-6 rounded-[2.5rem] shadow-sm border-b-4 border-red-600 text-center hover:scale-105 transition-transform">
+                    <p class="text-red-500 text-sm font-bold mb-2">ยาหมดคลัง</p>
+                    <p class="text-4xl font-black text-red-600" id="stat-out">0</p>
                 </div>
             </div>
-            
-            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-                <div class="flex items-center justify-between mb-6">
-                    <h3 class="font-black text-slate-700 flex items-center gap-2">
+
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
+                    <h3 class="font-black text-slate-700 flex items-center gap-2 mb-6">
                         <span class="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-xs">✨</span>
-                        รายการที่รับเข้ามาวันนี้ (Transaction รับเข้า)
+                        รายการล่าสุดวันนี้
                     </h3>
-                    <button onclick="window.changePage('in')" class="text-xs font-bold text-up-purple hover:underline">ดูทั้งหมด →</button>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-separate border-spacing-y-2">
+                            <thead>
+                                <tr class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    <th class="px-4 py-2">วัน-เวลา</th>
+                                    <th class="px-4 py-2">ชื่อเวชภัณฑ์</th>
+                                    <th class="px-4 py-2 text-center">จำนวน</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-table-body"></tbody>
+                        </table>
+                    </div>
                 </div>
-                <div class="overflow-x-auto custom-scrollbar">
-                    <table class="w-full text-left border-separate border-spacing-y-2">
-                        <thead>
-                            <tr class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                <th class="px-4 py-2">วัน-เวลาที่บันทึก</th>
-                                <th class="px-4 py-2">ชื่อเวชภัณฑ์</th>
-                                <th class="px-4 py-2 text-center">จำนวนที่รับ</th>
-                                <th class="px-4 py-2 text-right">แหล่งข้อมูล</th>
-                            </tr>
-                        </thead>
-                        <tbody id="recent-table-body"></tbody>
-                    </table>
+
+                <div class="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
+                    <h3 class="font-black text-slate-700 flex items-center gap-2 mb-6">
+                        <span class="w-8 h-8 bg-orange-100 text-orange-600 rounded-lg flex items-center justify-center text-xs">📊</span>
+                        รายการเบิกสูงสุด (3 เดือน)
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-separate border-spacing-y-2">
+                            <thead>
+                                <tr class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    <th class="px-4 py-2">ชื่อเวชภัณฑ์</th>
+                                    <th class="px-4 py-2 text-center">เบิกรวม</th>
+                                    <th class="px-4 py-2 text-center">คงเหลือ</th>
+                                    <th class="px-4 py-2 text-right">หน่วย</th>
+                                </tr>
+                            </thead>
+                            <tbody id="withdraw-table-body"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div id="page-in" class="hidden-page fade-in">
-            <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+        <div id="page-in" class="hidden-page fade-in space-y-6">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div class="relative w-full max-w-xl"> 
-                    <input type="text" id="search" onkeyup="window.render()" placeholder="ค้นหาชื่อเวชภัณฑ์ในสต็อก..." class="w-full pl-12 pr-6 py-4 rounded-[1.2rem] border-none shadow-sm focus:ring-4 focus:ring-purple-100 outline-none bg-white font-bold text-sm">
-                    <span class="absolute left-4 top-4 text-xl opacity-30">🔍</span>
+                    <input type="text" id="search" onkeyup="window.render()" placeholder="ค้นหาชื่อเวชภัณฑ์ หรือ LOT..." class="w-full pl-12 pr-6 py-4 rounded-[1.5rem] border-none shadow-sm focus:ring-4 focus:ring-purple-100 outline-none bg-white font-bold text-sm">
+                    <span class="absolute left-5 top-4.5 text-xl opacity-30">🔍</span>
                 </div>
-                
-                <div class="flex flex-wrap gap-2 bg-slate-200/50 p-1.5 rounded-[1.2rem] w-full md:w-fit">
-                    <button onclick="window.setFilter('all')" id="tab-all" class="flex-1 lg:flex-none px-4 py-2.5 rounded-full font-black text-[10px] tab-active">ทั้งหมด</button>
-                    <button onclick="window.setFilter('out')" id="tab-out" class="flex-1 lg:flex-none px-4 py-2.5 rounded-full font-black text-[10px] tab-inactive text-red-600">ยาหมด ❌</button>
-                    <button onclick="window.setFilter('low')" id="tab-low" class="flex-1 lg:flex-none px-4 py-2.5 rounded-full font-black text-[10px] tab-inactive text-orange-600">สต็อกต่ำ ⚠️</button>
-                    <button onclick="window.setFilter('expired')" id="tab-expired" class="flex-1 lg:flex-none px-4 py-2.5 rounded-full font-black text-[10px] tab-inactive text-red-500">หมดอายุ ⏰</button>
+                <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-sm text-xs font-bold text-slate-400">
+                    Filter: <span id="filter-status-label" class="text-up-purple">ทั้งหมด</span>
                 </div>
             </div>
 
-            <div class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+            <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
                 <div class="overflow-x-auto custom-scrollbar">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50 border-b border-slate-100 text-[11px] font-black text-slate-500 uppercase tracking-wider">
-                                <th class="px-6 py-5">ชื่อเวชภัณฑ์</th>
-                                <th class="px-6 py-5 text-center">คงเหลือ (ขั้นต่ำ)</th>
-                                <th class="px-6 py-5">กลุ่มสินค้า / วันหมดอายุ</th>
-                                <th class="px-6 py-5">สถานะ</th>
-                                <th class="px-6 py-5 text-right">แหล่งข้อมูล</th>
+                                <th class="px-6 py-6">ชื่อเวชภัณฑ์ / ล็อต</th>
+                                <th class="px-6 py-6 text-center">คงเหลือ (ขั้นต่ำ)</th>
+                                <th class="px-6 py-6">วันหมดอายุ (EXP)</th>
+                                <th class="px-6 py-6">สถานะ</th>
                             </tr>
                         </thead>
                         <tbody id="table-in-body"></tbody>
@@ -157,212 +170,6 @@
         </div>
     </main>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyAmt2szWOjQBPfzfs7QfQVysgfaRzHyPa0",
-            authDomain: "up-med-online.firebaseapp.com",
-            databaseURL: "https://up-med-online-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "up-med-online",
-            storageBucket: "up-med-online.appspot.com",
-            messagingSenderId: "381838942970",
-            appId: "1:381838942970:web:8f83a02ba1544d54a95f43"
-        };
-        
-        const SHEET_URL = "https://script.google.com/macros/s/AKfycbzXYB2dSX2Mt4elZ7wjp7hruzyaK0edqPn59NzFDqYOM2gljCvSuAwIuenZ0SCQQYz7GQ/exec";
-
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const medsRef = ref(db, 'meds');
-
-        // Global States
-        window.sheetMeds = [];
-        window.sheetExpiringMeds = [];
-        window.sheetTransactions = [];
-        window.firebaseMeds = [];
-        window.filterIn = 'all';
-
-        const isToday = (dateVal) => {
-            if (!dateVal) return false;
-            const d = new Date(dateVal);
-            if (isNaN(d.getTime())) return false;
-            const today = new Date();
-            return d.toLocaleDateString('th-TH') === today.toLocaleDateString('th-TH');
-        };
-
-        // 1. ดึงข้อมูลจาก Sheets
-        async function fetchSheets() {
-            try {
-                const res = await fetch(`${SHEET_URL}?action=dashboard_data&t=${Date.now()}`);
-                const data = await res.json();
-                
-                window.sheetMeds = (data.inventory || []).filter(item => item["ชื่อสินค้า"]).map(item => ({
-                    id: 'inv-' + Math.random(),
-                    name: item["ชื่อสินค้า"],
-                    stock: parseInt(item["จำนวนสินค้าคงเหลือ"]) || 0,
-                    minStock: parseInt(item["จำนวนขั้นต่ำ"]) || 0,
-                    status: (item["Comment"] === "OK") ? "รับเข้าคลังแล้ว" : (item["Comment"] || "ปกติ"),
-                    category: item["กลุ่มสินค้า"] || "ทั่วไป",
-                    expiry: item["วันหมดอายุ"] || null,
-                    isSheet: true
-                }));
-
-                window.sheetExpiringMeds = (data.expiring || []).filter(item => item["ชื่อสินค้า"]).map(item => ({
-                    name: item["ชื่อสินค้า"],
-                    expiry: item["วันหมดอายุ"],
-                    stock: item["จำนวนสินค้าคงเหลือ"] || 0
-                }));
-
-                window.sheetTransactions = (data.transactions || []).map(item => ({
-                    name: item["ชื่อสินค้า"],
-                    qty: item["จำนวนรับ"] || item["จำนวน"] || 0,
-                    timestamp: item["วันที่บันทึก"] || item["Timestamp"] || item["วันที่"],
-                    source: 'Sheets'
-                }));
-
-                window.render();
-            } catch (e) { console.error("Sheets Error:", e); }
-        }
-
-        // 2. ดึงข้อมูลจาก Firebase
-        onValue(medsRef, (snap) => {
-            const data = snap.val();
-            window.firebaseMeds = data ? Object.keys(data).map(k => ({ 
-                ...data[k], 
-                id: k, 
-                isSheet: false,
-                stock: parseInt(data[k].stock) || 0,
-                minStock: parseInt(data[k].minStock) || 0,
-                timestamp: data[k].timestamp || null
-            })) : [];
-            window.render();
-        });
-
-        // 3. Render
-        window.render = () => {
-            const q = document.getElementById('search').value.toLowerCase();
-            const combinedInventory = [...window.sheetMeds, ...window.firebaseMeds];
-            const tableBody = document.getElementById('table-in-body');
-            
-            const now = new Date();
-            const limit90Days = new Date(); limit90Days.setDate(now.getDate() + 90);
-            const isLow = (m) => m.stock > 0 && m.stock < (m.minStock || 0);
-            const isExp = (m) => m.expiry && new Date(m.expiry) < now;
-            const isNear = (m) => m.expiry && (new Date(m.expiry) >= now && new Date(m.expiry) <= limit90Days);
-
-            // Stats Update
-            const todayCount = window.sheetTransactions.filter(t => isToday(t.timestamp)).length + 
-                               window.firebaseMeds.filter(m => isToday(m.timestamp)).length;
-            
-            const updateUI = (id, val) => { if(document.getElementById(id)) document.getElementById(id).innerText = val; };
-            updateUI('stat-total', combinedInventory.length);
-            updateUI('stat-out', combinedInventory.filter(m => m.stock <= 0).length);
-            updateUI('stat-warning', combinedInventory.filter(isLow).length);
-            updateUI('stat-today', todayCount);
-            updateUI('stat-done', combinedInventory.filter(m => m.status === 'รับเข้าคลังแล้ว').length);
-            updateUI('stat-expired', window.sheetExpiringMeds.length);
-
-            // Dashboard Table
-            const recentBody = document.getElementById('recent-table-body');
-            if(recentBody) {
-                const allRecent = [...window.sheetTransactions, ...window.firebaseMeds.filter(m => isToday(m.timestamp)).map(f => ({ name: f.name, qty: f.stock, timestamp: f.timestamp, source: 'Firebase' }))]
-                    .filter(r => isToday(r.timestamp))
-                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 10);
-                
-                recentBody.innerHTML = allRecent.map(m => `
-                    <tr class="bg-slate-50/50 hover:bg-slate-100 transition-colors">
-                        <td class="px-4 py-3 rounded-l-xl"><p class="text-[11px] font-bold text-slate-600">${new Date(m.timestamp).toLocaleString('th-TH')}</p></td>
-                        <td class="px-4 py-3"><p class="text-sm font-black text-slate-800">${m.name}</p></td>
-                        <td class="px-4 py-3 text-center"><span class="bg-white px-3 py-1 rounded-full text-xs font-black shadow-sm border border-slate-100">${m.qty}</span></td>
-                        <td class="px-4 py-3 text-right rounded-r-xl"><span class="status-pill ${m.source==='Sheets'?'bg-blue-50 text-blue-600':'bg-purple-50 text-purple-600'}">${m.source}</span></td>
-                    </tr>
-                `).join('') || '<tr><td colspan="4" class="text-center py-4 opacity-30 italic font-bold">ไม่มีรายการรับเข้าในวันนี้</td></tr>';
-            }
-
-            // Inventory Table
-            if (window.filterIn === 'expired') {
-                tableBody.innerHTML = window.sheetExpiringMeds.filter(m => m.name.toLowerCase().includes(q)).map(m => `
-                    <tr class="border-b border-red-50 bg-red-50/30 hover:bg-red-50 transition-colors">
-                        <td class="px-6 py-4 font-bold text-slate-800">${m.name}</td>
-                        <td class="px-6 py-4 text-center"><span class="text-lg font-black text-red-600">${m.stock}</span></td>
-                        <td class="px-6 py-4 font-black text-red-500">EXP: ${m.expiry ? new Date(m.expiry).toLocaleDateString('th-TH') : 'ไม่ระบุ'}</td>
-                        <td class="px-6 py-4"><span class="status-pill bg-red-600 text-white">ใกล้หมดอายุ</span></td>
-                        <td class="px-6 py-4 text-right"><span class="status-pill bg-blue-50 text-blue-600">Sheets</span></td>
-                    </tr>
-                `).join('') || '<tr><td colspan="5" class="py-20 text-center opacity-30 font-bold">ไม่พบสินค้าใกล้หมดอายุ</td></tr>';
-                return;
-            }
-
-            let filtered = combinedInventory.filter(m => m.name.toLowerCase().includes(q));
-            if (window.filterIn === 'out') filtered = filtered.filter(m => m.stock <= 0);
-            if (window.filterIn === 'low') filtered = filtered.filter(isLow);
-
-            tableBody.innerHTML = filtered.map(m => `
-                <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4">
-                        <div class="flex flex-col">
-                            <span class="font-bold text-slate-800 text-sm">${m.name}</span>
-                            <span class="text-[9px] text-slate-400 font-bold uppercase">${m.category}</span>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        <div class="flex flex-col items-center">
-                            ${m.isSheet ? `<span class="text-lg font-black ${m.stock <= 0 ? 'text-red-600' : isLow(m) ? 'text-orange-500' : 'text-slate-700'}">${m.stock}</span>` :
-                             `<input type="number" value="${m.stock}" onchange="window.updateStock('${m.id}', this.value)" class="w-16 text-center bg-slate-100 border-none rounded-lg py-1 font-black focus:ring-2 focus:ring-purple-300">`}
-                            <span class="text-[9px] font-bold text-slate-400">Min: ${m.minStock}</span>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4">
-                        <span class="text-[10px] font-black ${isExp(m) ? 'text-red-600' : isNear(m) ? 'text-orange-500' : 'text-slate-500'}">
-                            ${m.expiry ? 'EXP: ' + new Date(m.expiry).toLocaleDateString('th-TH') : 'ไม่ระบุวันหมดอายุ'}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4">
-                        ${m.stock <= 0 ? '<span class="status-pill bg-red-600 text-white">ยาหมด!</span>' :
-                          isExp(m) ? '<span class="status-pill bg-red-100 text-red-600">หมดอายุ!</span>' :
-                          isNear(m) ? '<span class="status-pill bg-orange-100 text-orange-600">ใกล้หมดอายุ</span>' :
-                          isLow(m) ? '<span class="status-pill bg-orange-50 text-orange-500">สต็อกต่ำ</span>' :
-                          `<span class="status-pill ${m.status==='รับเข้าคลังแล้ว'?'bg-emerald-50 text-emerald-600':'bg-slate-100 text-slate-500'}">${m.status}</span>`}
-                    </td>
-                    <td class="px-6 py-4 text-right">
-                        <span class="status-pill ${m.isSheet ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}">${m.isSheet ? 'Sheets' : 'Firebase'}</span>
-                    </td>
-                </tr>
-            `).join('') || '<tr><td colspan="5" class="py-20 text-center opacity-30 font-bold">ไม่พบข้อมูลเวชภัณฑ์</td></tr>';
-        };
-
-        // UI Handlers
-        window.updateStock = (id, val) => {
-            update(ref(db, `meds/${id}`), { stock: parseInt(val) }).catch(err => alert("Error updating Firebase"));
-        };
-        window.toggleMenu = () => { 
-            document.getElementById('sidebar').classList.toggle('active'); 
-            document.getElementById('overlay').classList.toggle('active'); 
-        };
-        window.changePage = (p) => {
-            document.getElementById('page-db').classList.toggle('hidden-page', p !== 'db');
-            document.getElementById('page-in').classList.toggle('hidden-page', p !== 'in');
-            document.getElementById('btn-db').classList.toggle('bg-white/20', p === 'db');
-            document.getElementById('btn-db').classList.toggle('opacity-60', p !== 'db');
-            document.getElementById('btn-in').classList.toggle('bg-white/20', p === 'in');
-            document.getElementById('btn-in').classList.toggle('opacity-60', p !== 'in');
-            if(window.innerWidth < 1024 && document.getElementById('sidebar').classList.contains('active')) window.toggleMenu();
-            window.render();
-        };
-        window.goToFilter = (f) => { window.changePage('in'); window.setFilter(f); };
-        window.setFilter = (f) => { 
-            window.filterIn = f; 
-            ['all', 'out', 'low', 'expired'].forEach(t => {
-                const el = document.getElementById(`tab-${t}`);
-                if(el) { el.classList.toggle('tab-active', f === t); el.classList.toggle('tab-inactive', f !== t); }
-            });
-            window.render(); 
-        };
-
-        fetchSheets();
-        setInterval(fetchSheets, 30000); 
-    </script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>

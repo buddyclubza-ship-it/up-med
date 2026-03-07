@@ -1,0 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700;800&display=swap');
+
+:root { 
+    --up-purple: #602D91; 
+    --up-gold: #FDB813; 
+}
+
+body { 
+    font-family: 'Sarabun', sans-serif; 
+    background-color: #F1F5F9; 
+    color: #1E293B; 
+}
+
+.bg-up-purple { background-color: var(--up-purple); }
+.text-up-purple { color: var(--up-purple); }
+.text-up-gold { color: var(--up-gold); }
+
+@media (max-width: 1024px) {
+    nav { position: fixed; left: -100%; z-index: 1000; transition: 0.4s; height: 100vh; }
+    nav.active { left: 0; }
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 900; backdrop-filter: blur(4px); }
+    .overlay.active { display: block; }
+}
+
+.status-pill { padding: 4px 10px; border-radius: 8px; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; white-space: nowrap; }
+.hidden-page { display: none; }
+.fade-in { animation: fadeIn 0.4s ease-out; }
+
+@keyframes fadeIn { 
+    from { opacity: 0; transform: translateY(10px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
+
+.stat-btn { transition: all 0.2s; cursor: pointer; }
+.stat-btn:active { transform: scale(0.95); }
+
+.custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+.modal { display: none; position: fixed; inset: 0; z-index: 2000; align-items: center; justify-content: center; padding: 20px; }
+.modal.active { display: flex; }
