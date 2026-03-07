@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-// --- Configuration ---
+// --- 1. Configuration ---
 const firebaseConfig = {
     apiKey: "AIzaSyAmt2szWOjQBPfzfs7QfQVysgfaRzHyPa0",
     authDomain: "up-med-online.firebaseapp.com",
@@ -12,7 +12,7 @@ const firebaseConfig = {
     appId: "1:381838942970:web:8f83a02ba1544d54a95f43"
 };
 
-const SHEET_URL = "https://script.google.com/macros/s/AKfycbyzy3SZE39oWym54ELtB6TsBEboayqkjhkSgZoWtGWxYTCjC0NLejZ-AAy4QraA_7zdPQ/exec";
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbx3w-VDqi8gOYZIjIhCXnlzexcfczbscvVEATgPIh_gKuQ7hN3ZT7tdHbiL4FWSNFgXpg/exec";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -20,33 +20,52 @@ const db = getDatabase(app);
 // Global Variables
 window.sheetMeds = [];
 window.sheetWithdrawals = [];
+window.expiringMeds = []; 
 window.firebaseMeds = [];
 window.currentFilter = 'all';
 
-// --- Utility Functions ---
+// --- 2. Utility Functions ---
+const getVal = (obj, keys) => {
+    if (!obj) return null;
+    const objKeys = Object.keys(obj);
+    let targetKey = objKeys.find(k => keys.some(key => k.trim().toLowerCase() === key.trim().toLowerCase()));
+    if (!targetKey) {
+        targetKey = objKeys.find(k => keys.some(key => k.includes(key) || key.includes(k)));
+    }
+    const val = targetKey ? obj[targetKey] : null;
+    return (val === "" || val === undefined || String(val).trim() === "") ? null : val;
+};
+
+const parseStockValue = (val) => {
+    if (val === null || val === undefined || val === "") return 0;
+    const cleaned = String(val).replace(/,/g, '').trim();
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+};
+
+const normalizeName = (name) => {
+    if (!name) return "";
+    return String(name).replace(/\s+/g, '').toLowerCase();
+};
 
 window.parseDate = (dateVal) => {
-    if (!dateVal) return null;
+    if (!dateVal || String(dateVal).trim() === "" || dateVal === "-") return null;
+    if (dateVal instanceof Date) return dateVal;
     let d = new Date(dateVal);
-    if (d.getFullYear() > 2500) d.setFullYear(d.getFullYear() - 543);
-    return isNaN(d.getTime()) ? null : d;
+    if (!isNaN(d.getTime())) {
+        if (d.getFullYear() <= 1970) return null; 
+        if (d.getFullYear() > 2500) d.setFullYear(d.getFullYear() - 543);
+        return d;
+    }
+    return null;
 };
 
-const isWithinLast3Months = (dateVal) => {
-    const d = window.parseDate(dateVal);
-    if (!d) return false;
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-    return d >= threeMonthsAgo;
-};
-
-// --- UI Navigation ---
-
+// --- 3. UI Navigation & Modal ---
 window.toggleMenu = () => {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('overlay');
-    if (sidebar) sidebar.classList.toggle('active');
-    if (overlay) overlay.classList.toggle('active');
+    sidebar?.classList.toggle('active');
+    overlay?.classList.toggle('active');
 };
 
 window.changePage = (p) => {
@@ -54,189 +73,303 @@ window.changePage = (p) => {
     const pageIn = document.getElementById('page-in');
     const btnDb = document.getElementById('btn-db');
     const btnIn = document.getElementById('btn-in');
-
-    if (pageDb) pageDb.classList.toggle('hidden-page', p !== 'db');
-    if (pageIn) pageIn.classList.toggle('hidden-page', p !== 'in');
     
-    // ปรับสถานะปุ่มเมนู (Active/Inactive)
-    if (btnDb) btnDb.classList.toggle('opacity-100', p === 'db');
-    if (btnDb) btnDb.classList.toggle('bg-white/20', p === 'db');
-    if (btnIn) btnIn.classList.toggle('opacity-100', p === 'in');
-    if (btnIn) btnIn.classList.toggle('bg-white/20', p === 'in');
+    pageDb?.classList.toggle('hidden-page', p !== 'db');
+    pageIn?.classList.toggle('hidden-page', p !== 'in');
+    
+    [btnDb, btnIn].forEach(btn => btn?.classList.remove('bg-white/20', 'opacity-100'));
+    const activeBtn = p === 'db' ? btnDb : btnIn;
+    activeBtn?.classList.add('bg-white/20', 'opacity-100');
 
-    if (window.innerWidth < 1024) window.toggleMenu();
+    if (window.innerWidth < 1024) {
+        document.getElementById('sidebar')?.classList.remove('active');
+        document.getElementById('overlay')?.classList.remove('active');
+    }
     window.render();
 };
 
 window.goToFilter = (f) => {
     window.currentFilter = f;
+    window.changePage('in'); 
+};
+
+// เพิ่มฟังก์ชันสำหรับคลิกไปดูรายการเบิกทั้งหมด
+window.goWithdrawFilter = () => {
+    window.currentFilter = 'withdraw';
+    const label = document.getElementById('filter-status-label');
+    if(label) label.innerText = 'รายการเบิกสะสม (3 เดือน)';
     window.changePage('in');
 };
 
-// --- Data Fetching ---
+window.setFilter = (f) => {
+    window.currentFilter = f;
+    const label = document.getElementById('filter-status-label');
+    if(label) {
+        const labels = { 
+            'all': 'ทั้งหมด', 
+            'low': 'ใกล้หมด', 
+            'out': 'หมดคลัง', 
+            'exp': 'วิกฤต/หมดอายุ', 
+            'dead': 'Dead Stock',
+            'withdraw': 'รายการเบิกสะสม (3 เดือน)'
+        };
+        label.innerText = labels[f] || 'ทั้งหมด';
+    }
+    window.render();
+};
 
+window.showMedDetail = (medJson) => {
+    const m = JSON.parse(decodeURIComponent(medJson));
+    const modal = document.getElementById('med-modal');
+    if (!modal) return;
+    
+    document.getElementById('modal-name').innerText = m.name;
+    document.getElementById('modal-cat').innerText = m.category || 'ทั่วไป';
+    document.getElementById('modal-stock').innerText = m.stock.toLocaleString();
+    document.getElementById('modal-min').innerText = m.minStock.toLocaleString();
+    document.getElementById('modal-lot').innerText = m.lot;
+    document.getElementById('modal-unit').innerText = m.unit || 'หน่วย';
+
+    const expLabel = document.getElementById('modal-exp');
+    if (expLabel) {
+        expLabel.innerText = m.daysToExpiry !== undefined ? `อีก ${m.daysToExpiry} วันหมดอายุ` : 'ไม่ระบุ';
+    }
+
+    const statusEl = document.getElementById('modal-status');
+    if (m.stock <= 0) {
+        statusEl.innerText = "สินค้าหมดคลัง";
+        statusEl.className = "text-xs font-black uppercase px-3 py-1 rounded-full bg-red-100 text-red-600";
+    } else if (m.daysToExpiry <= 30) {
+        statusEl.innerText = "วิกฤต/ใกล้หมดอายุ";
+        statusEl.className = "text-xs font-black uppercase px-3 py-1 rounded-full bg-red-600 text-white";
+    } else if (m.daysToExpiry <= 180) {
+        statusEl.innerText = "ใกล้หมดอายุ (180ว.)";
+        statusEl.className = "text-xs font-black uppercase px-3 py-1 rounded-full bg-purple-100 text-purple-600";
+    } else if (m.stock < m.minStock) {
+        statusEl.innerText = "ควรเติมสินค้า";
+        statusEl.className = "text-xs font-black uppercase px-3 py-1 rounded-full bg-orange-100 text-orange-600";
+    } else {
+        statusEl.innerText = "ปกติ";
+        statusEl.className = "text-xs font-black uppercase px-3 py-1 rounded-full bg-emerald-100 text-emerald-600";
+    }
+    modal.classList.remove('hidden');
+};
+
+window.closeMedModal = () => document.getElementById('med-modal')?.classList.add('hidden');
+
+// --- 4. Data Fetching ---
 async function fetchData() {
     try {
-        console.log("🔄 กำลังดึงข้อมูลจาก Sheets...");
         const res = await fetch(`${SHEET_URL}?action=dashboard_data&t=${Date.now()}`);
-        if (!res.ok) throw new Error('Network response was not ok');
         const data = await res.json();
+        
+        const inventoryData = data.inventory || [];
+        window.sheetMeds = inventoryData.map(item => {
+            const raw = Object.values(item);
+            return {
+                name: String(getVal(item, ["ชื่อสินค้า", "รายการ"]) || raw[0] || "ไม่ระบุชื่อ").trim(),
+                normName: normalizeName(getVal(item, ["ชื่อสินค้า", "รายการ"]) || raw[0]),
+                stock: parseStockValue(getVal(item, ["จำนวนสินค้าคงเหลือ", "คงเหลือ"])),
+                minStock: parseStockValue(getVal(item, ["จำนวนขั้นต่ำ", "จุดสั่งซื้อ"])),
+                category: String(getVal(item, ["กลุ่มสินค้า", "ประเภท"]) || "ทั่วไป").trim(),
+                lot: String(getVal(item, ["Lot No.", "Lot"]) || "-").trim(),
+                unit: String(getVal(item, ["หน่วยนับ"]) || "หน่วย")
+            };
+        }).filter(m => m.name !== "ไม่ระบุชื่อ");
 
-        const getVal = (obj, keys) => {
-            if (!obj) return null;
-            const targetKey = Object.keys(obj).find(k => 
-                keys.includes(k.trim()) || keys.map(x => x.toLowerCase()).includes(k.trim().toLowerCase())
-            );
-            return targetKey ? obj[targetKey] : null;
-        };
-
-        if (data.inventory) {
-            window.sheetMeds = data.inventory.map(item => ({
-                name: getVal(item, ["ชื่อสินค้า", "รายการ", "ชื่อ", "item_name"]) || "ไม่ระบุชื่อ",
-                stock: parseFloat(getVal(item, ["จำนวนสินค้าคงเหลือ", "คงเหลือ", "จำนวน", "stock"])) || 0,
-                minStock: parseFloat(getVal(item, ["จำนวนขั้นต่ำ", "ขั้นต่ำ", "Min", "min_stock"])) || 0,
-                lot: getVal(item, ["LOT", "เลขล็อต", "ล็อต", "lot_no"]) || "-",
-                expiry: getVal(item, ["วันหมดอายุ", "หมดอายุ", "EXP", "expiry_date"]) || "",
-                category: getVal(item, ["กลุ่มสินค้า", "หมวดหมู่", "ประเภท", "category"]) || "ทั่วไป"
-            }));
-        }
+        const expirySource = data.expiring || [];
+        window.expiringMeds = expirySource.map(item => ({
+            normName: normalizeName(getVal(item, ["ชื่อสินค้า"])),
+            daysToExpiry: parseStockValue(getVal(item, ["กี่วันถึงหมดอายุ", "days"]))
+        }));
 
         if (data.withdrawals) {
             window.sheetWithdrawals = data.withdrawals.map(item => ({
-                name: getVal(item, ["ชื่อสินค้า", "รายการ", "item_name"]) || "ไม่ระบุชื่อ",
-                qty: parseFloat(getVal(item, ["จำนวนที่เบิก", "จำนวน", "Qty", "amount"])) || 0,
-                unit: getVal(item, ["หน่วยนับ", "หน่วย", "unit"]) || "หน่วย",
-                timestamp: getVal(item, ["วันที่บันทึก", "Timestamp", "วันที่", "date"]) || ""
+                name: String(getVal(item, ["ชื่อสินค้า"]) || "ไม่ระบุชื่อ").trim(),
+                normName: normalizeName(getVal(item, ["ชื่อสินค้า"])),
+                qty: parseStockValue(getVal(item, ["จำนวนที่เบิก", "จำนวน"])),
+                unit: getVal(item, ["หน่วย"]) || "หน่วย",
+                timestamp: getVal(item, ["วันที่"]) || ""
             }));
         }
         window.render();
-    } catch (e) { 
-        console.error("❌ Fetch Data Error:", e); 
-    }
+    } catch (e) { console.error("Fetch Error:", e); }
 }
 
 onValue(ref(db, 'meds'), (snap) => {
     const data = snap.val();
-    window.firebaseMeds = data ? Object.keys(data).map(k => ({ ...data[k], id: k })) : [];
+    window.firebaseMeds = data ? Object.keys(data).map(k => ({ 
+        ...data[k], 
+        id: k, 
+        normName: normalizeName(data[k].name),
+        stock: parseStockValue(data[k].stock),
+        minStock: parseStockValue(data[k].minStock)
+    })) : [];
     window.render();
 });
 
-// --- Render Logic ---
-
+// --- 5. Updated Render Logic (With Withdrawal Sort) ---
 window.render = () => {
     const q = (document.getElementById('search')?.value || "").toLowerCase();
-    const allInventory = [...(window.sheetMeds || []), ...(window.firebaseMeds || [])];
-    const limitDate = new Date();
-    limitDate.setMonth(limitDate.getMonth() + 3);
+    
+    const allInv = [...window.sheetMeds, ...window.firebaseMeds].map(item => {
+        const expData = window.expiringMeds.find(e => e.normName === item.normName);
+        return expData ? { ...item, daysToExpiry: expData.daysToExpiry } : item;
+    });
+    
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-    let filteredInv = allInventory.filter(m => 
-        (m.name || "").toLowerCase().includes(q) || (m.lot || "").toLowerCase().includes(q)
-    );
+    // สร้าง Map สำหรับวันเบิกสุดท้าย
+    const lastWithdrawMap = window.sheetWithdrawals.reduce((acc, curr) => {
+        const d = window.parseDate(curr.timestamp);
+        if (d && (!acc[curr.normName] || d > acc[curr.normName])) acc[curr.normName] = d;
+        return acc;
+    }, {});
 
-    // กรองตามสถานะที่เลือกจาก Dashboard
-    if (window.currentFilter === 'out') {
-        filteredInv = filteredInv.filter(i => i.stock <= 0);
-    } 
-    else if (window.currentFilter === 'low') {
-        filteredInv = filteredInv.filter(i => i.stock > 0 && i.stock < i.minStock);
-    }
-    else if (window.currentFilter === 'expired') {
-        filteredInv = filteredInv.filter(i => {
-            const d = window.parseDate(i.expiry);
-            return d && d < limitDate;
+    // คำนวณยอดเบิกสะสม 3 เดือนสำหรับยาแต่ละชนิด
+    const withdrawSumMap = window.sheetWithdrawals.reduce((acc, curr) => {
+        const d = window.parseDate(curr.timestamp);
+        if (d && d >= threeMonthsAgo) {
+            acc[curr.normName] = (acc[curr.normName] || 0) + curr.qty;
+        }
+        return acc;
+    }, {});
+
+    const stats = allInv.reduce((acc, item) => {
+        if (item.stock > 0 && item.stock < item.minStock) acc.near_exp++;
+        if (item.stock <= 0) acc.out++;
+        if (item.daysToExpiry !== undefined && item.daysToExpiry <= 180) acc.expired++;
+        const lastDate = lastWithdrawMap[item.normName];
+        if (item.stock > 0 && (!lastDate || lastDate < sixMonthsAgo)) acc.dead++;
+        return acc;
+    }, { near_exp: 0, out: 0, expired: 0, dead: 0 });
+
+    const update = (id, val) => { 
+        const el = document.getElementById(id);
+        if(el) el.innerText = val.toLocaleString(); 
+    };
+    
+    ['stat-total', 'stat-total-db'].forEach(id => update(id, allInv.length));
+    ['stat-low', 'stat-low-db'].forEach(id => update(id, stats.near_exp));
+    ['stat-out', 'stat-out-db'].forEach(id => update(id, stats.out));
+    ['stat-exp', 'stat-exp-db'].forEach(id => update(id, stats.expired));
+    ['stat-dead', 'stat-dead-db'].forEach(id => update(id, stats.dead));
+
+    let filtered = allInv.filter(m => m.name.toLowerCase().includes(q) || m.lot.toLowerCase().includes(q));
+    
+    if (window.currentFilter === 'low') {
+        filtered = filtered.filter(i => i.stock > 0 && i.stock < i.minStock);
+    } else if (window.currentFilter === 'out') {
+        filtered = filtered.filter(i => i.stock <= 0);
+    } else if (window.currentFilter === 'exp') {
+        filtered = filtered.filter(i => i.daysToExpiry !== undefined && i.daysToExpiry <= 180);
+    } else if (window.currentFilter === 'dead') {
+        filtered = filtered.filter(i => {
+            const last = lastWithdrawMap[i.normName];
+            return i.stock > 0 && (!last || last < sixMonthsAgo);
         });
+    } else if (window.currentFilter === 'withdraw') {
+        // กรองเฉพาะที่มีรายการเบิกใน 3 เดือน และเรียงจากมากไปน้อย
+        filtered = filtered
+            .filter(i => (withdrawSumMap[i.normName] || 0) > 0)
+            .sort((a, b) => (withdrawSumMap[b.normName] || 0) - (withdrawSumMap[a.normName] || 0));
     }
 
-    // อัปเดตตัวเลขบน Card Dashboard
-    const totalEl = document.getElementById('stat-total');
-    const outEl = document.getElementById('stat-out');
-    const lowEl = document.getElementById('stat-low'); 
-    const expEl = document.getElementById('stat-expired');
-
-    if (totalEl) totalEl.innerText = allInventory.length.toLocaleString();
-    if (outEl) outEl.innerText = allInventory.filter(i => i.stock <= 0).length.toLocaleString();
-    if (lowEl) {
-        const lowCount = allInventory.filter(i => i.stock > 0 && i.stock < i.minStock).length;
-        lowEl.innerText = lowCount.toLocaleString();
-    }
-    if (expEl) {
-        expEl.innerText = allInventory.filter(i => {
-            const d = window.parseDate(i.expiry);
-            return d && d < limitDate;
-        }).length.toLocaleString();
-    }
-
-    renderTables(filteredInv, allInventory, limitDate);
+    renderTable(filtered, lastWithdrawMap, sixMonthsAgo, withdrawSumMap);
+    renderWithdrawSummary(allInv);
 };
 
-function renderTables(filteredInv, allInventory, limitDate) {
-    // 1. Inventory Table
-    const tableInBody = document.getElementById('table-in-body');
-    if (tableInBody) {
-        tableInBody.innerHTML = filteredInv.map(m => {
-            const expDate = window.parseDate(m.expiry);
-            const expText = expDate ? expDate.toLocaleDateString('th-TH') : (m.expiry || '-');
-            const isExpired = expDate && expDate < new Date();
-            const stockClass = m.stock <= 0 ? 'text-red-500' : (m.stock < m.minStock ? 'text-orange-500' : 'text-slate-700');
-            
-            return `
-            <tr onclick="window.showMedDetail('${encodeURIComponent(JSON.stringify(m))}')" class="border-b border-slate-50 hover:bg-slate-50 cursor-pointer">
-                <td class="px-6 py-4">
-                    <div class="font-bold text-slate-800">${m.name}</div>
-                    <div class="text-[10px] text-up-purple font-black uppercase">LOT: ${m.lot || '-'}</div>
-                </td>
-                <td class="px-6 py-4 text-center">
-                    <div class="text-lg font-black ${stockClass}">${m.stock}</div>
-                    <div class="text-[9px] text-slate-400">ขั้นต่ำ: ${m.minStock}</div>
-                </td>
-                <td class="px-6 py-4 font-bold ${isExpired ? 'text-red-500' : 'text-slate-600'}">${expText}</td>
-                <td class="px-6 py-4">
-                    <span class="status-pill ${m.stock <= 0 ? 'bg-red-100 text-red-600' : (m.stock < m.minStock ? 'bg-orange-100 text-orange-600' : 'bg-emerald-100 text-emerald-600')}">
-                        ${m.stock <= 0 ? 'สินค้าหมด' : (m.stock < m.minStock ? 'ควรเติมสินค้า' : 'มีสินค้า')}
-                    </span>
-                </td>
-            </tr>`;
-        }).join('');
-    }
+function renderTable(data, lastWithdrawMap, sixMonthsAgo, withdrawSumMap = {}) {
+    const tbody = document.getElementById('table-in-body');
+    if (!tbody) return;
 
-    // 2. Dashboard Tables (Top Withdrawals)
-    const withdrawSummary = (window.sheetWithdrawals || []).reduce((acc, curr) => {
-        if (isWithinLast3Months(curr.timestamp)) {
-            if (!acc[curr.name]) acc[curr.name] = { name: curr.name, total: 0, unit: curr.unit };
-            acc[curr.name].total += curr.qty;
+    tbody.innerHTML = data.map(m => {
+        const lastWithdraw = lastWithdrawMap[m.normName];
+        const isDead = m.stock > 0 && (!lastWithdraw || lastWithdraw < sixMonthsAgo);
+        const medJson = encodeURIComponent(JSON.stringify(m));
+        const totalWithdraw = withdrawSumMap[m.normName] || 0;
+        
+        let badgeClass = "bg-emerald-100 text-emerald-600";
+        let statusText = "ปกติ";
+
+        if (m.stock <= 0) { 
+            badgeClass = "bg-red-100 text-red-600"; 
+            statusText = "สินค้าหมด"; 
+        } else if (m.daysToExpiry !== undefined && m.daysToExpiry <= 180) {
+            badgeClass = "bg-purple-100 text-purple-600";
+            statusText = "ใกล้หมดอายุ (180ว.)";
+            if (m.daysToExpiry <= 30) {
+                badgeClass = "bg-red-600 text-white";
+                statusText = "วิกฤต/หมดอายุ";
+            }
+        } else if (m.stock < m.minStock) { 
+            badgeClass = "bg-orange-100 text-orange-600"; 
+            statusText = "ควรเติมสินค้า"; 
+        } else if (isDead) { 
+            badgeClass = "bg-slate-200 text-slate-600"; 
+            statusText = "Dead Stock"; 
+        }
+
+        return `
+        <tr onclick="showMedDetail('${medJson}')" class="border-b border-slate-50 hover:bg-slate-100 cursor-pointer transition-colors">
+            <td class="px-6 py-4">
+                <div class="font-bold text-slate-800">${m.name}</div>
+                <div class="text-[10px] text-purple-600 font-black">หมวดหมู่: ${m.category}</div>
+                ${window.currentFilter === 'withdraw' ? `<div class="text-[10px] text-orange-600 font-bold italic">เบิกสะสม 3ด.: ${totalWithdraw.toLocaleString()} ${m.unit}</div>` : ''}
+            </td>
+            <td class="px-6 py-4 text-center">
+                <div class="text-lg font-black ${m.stock <= 0 ? 'text-red-500' : (m.stock < m.minStock ? 'text-orange-500' : 'text-slate-700')}">
+                    ${m.stock.toLocaleString()}
+                </div>
+                <div class="text-[9px] text-slate-400">Min: ${m.minStock.toLocaleString()}</div>
+            </td>
+            <td class="px-6 py-4 font-bold text-slate-600 text-center">
+                ${m.daysToExpiry !== undefined ? `<span class="${m.daysToExpiry <= 180 ? 'text-red-500' : 'text-slate-600'}">${m.daysToExpiry} วัน</span>` : '-'}
+            </td>
+            <td class="px-6 py-4 text-right">
+                <span class="px-3 py-1 rounded-full text-[10px] font-bold ${badgeClass}">
+                    ${statusText}
+                </span>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function renderWithdrawSummary(allInventory) {
+    const withdrawBody = document.getElementById('withdraw-table-body');
+    if (!withdrawBody) return;
+
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+    const summary = (window.sheetWithdrawals || []).reduce((acc, curr) => {
+        const d = window.parseDate(curr.timestamp);
+        if (d && d >= threeMonthsAgo) {
+            if (!acc[curr.normName]) acc[curr.normName] = { name: curr.name, total: 0, unit: curr.unit };
+            acc[curr.normName].total += curr.qty;
         }
         return acc;
     }, {});
     
-    const sortedWithdraw = Object.values(withdrawSummary).sort((a, b) => b.total - a.total).slice(0, 8);
-    const withdrawBody = document.getElementById('withdraw-table-body');
-    if (withdrawBody) {
-        withdrawBody.innerHTML = sortedWithdraw.map(w => {
-            const invItem = allInventory.find(i => i.name === w.name);
-            const currentStock = invItem ? invItem.stock : 0;
-            const stockColor = currentStock <= 0 ? 'text-red-500' : (invItem && currentStock < invItem.minStock ? 'text-orange-500' : 'text-slate-700');
-            return `
-            <tr class="bg-slate-50/50 hover:bg-orange-50 transition-all">
-                <td class="px-4 py-3 rounded-l-xl font-bold text-slate-700">${w.name}</td>
-                <td class="px-4 py-3 text-center"><span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-black">${w.total.toLocaleString()}</span></td>
-                <td class="px-4 py-3 text-center font-black ${stockColor}">${currentStock.toLocaleString()}</td>
-                <td class="px-4 py-3 text-right rounded-r-xl text-[10px] font-bold text-slate-400">${w.unit}</td>
-            </tr>`;
-        }).join('');
-    }
+    const sorted = Object.values(summary).sort((a, b) => b.total - a.total).slice(0, 8);
 
-    // 3. Recent Transactions
-    const recentBody = document.getElementById('recent-table-body');
-    if (recentBody) {
-        recentBody.innerHTML = (window.sheetWithdrawals || []).slice(0, 5).map(r => `
-            <tr class="bg-slate-50/50">
-                <td class="px-4 py-3 rounded-l-xl text-[10px] font-bold text-slate-400">${r.timestamp || '-'}</td>
-                <td class="px-4 py-3 font-bold text-slate-700">${r.name}</td>
-                <td class="px-4 py-3 text-center rounded-r-xl font-black text-emerald-600">+${r.qty}</td>
-            </tr>`).join('');
-    }
+    withdrawBody.innerHTML = sorted.map(w => {
+        const invItem = allInventory.find(i => i.normName === normalizeName(w.name));
+        const currentStock = invItem ? invItem.stock : 0;
+        return `
+        <tr onclick="window.goWithdrawFilter()" class="bg-slate-50/50 hover:bg-orange-50 transition-all cursor-pointer">
+            <td class="px-4 py-3 rounded-l-xl font-bold text-slate-700">${w.name}</td>
+            <td class="px-4 py-3 text-center"><span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-black">เบิกสะสม: ${w.total.toLocaleString()}</span></td>
+            <td class="px-4 py-3 text-center font-black ${currentStock <= 0 ? 'text-red-500' : 'text-slate-700'}">${currentStock.toLocaleString()}</td>
+            <td class="px-6 py-4 text-right rounded-r-xl text-[10px] font-bold text-slate-400">${w.unit}</td>
+        </tr>`;
+    }).join('');
 }
 
-// --- Start App ---
+// Start
 fetchData();
-setInterval(fetchData, 60000); // อัปเดตข้อมูลอัตโนมัติทุก 1 นาที
+setInterval(fetchData, 60000);
