@@ -12,7 +12,7 @@ const firebaseConfig = {
     appId: "1:381838942970:web:8f83a02ba1544d54a95f43"
 };
 
-const SHEET_URL = "https://script.google.com/macros/s/AKfycbx3w-VDqi8gOYZIjIhCXnlzexcfczbscvVEATgPIh_gKuQ7hN3ZT7tdHbiL4FWSNFgXpg/exec";
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbwpv6a1_DTPYVueDY-EpWGRkvPxLBpn-9uX6TLzdSJjOyvegmq4YS7kdQp4TYyeviMXKg/exec";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -20,6 +20,7 @@ const db = getDatabase(app);
 // Global Variables
 window.sheetMeds = [];
 window.sheetWithdrawals = [];
+window.recentInbounds = []; 
 window.expiringMeds = []; 
 window.firebaseMeds = [];
 window.currentFilter = 'all';
@@ -64,61 +65,28 @@ window.parseDate = (dateVal) => {
 window.toggleMenu = () => {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('overlay');
-    if (sidebar.classList.contains('hidden')) {
-        sidebar.classList.remove('hidden');
-        sidebar.classList.add('fixed', 'inset-y-0', 'left-0', 'w-64');
-        overlay.classList.remove('hidden');
-    } else {
-        sidebar.classList.add('hidden');
-        sidebar.classList.remove('fixed', 'inset-y-0', 'left-0', 'w-64');
-        overlay.classList.add('hidden');
-    }
+    sidebar?.classList.toggle('active');
+    overlay?.classList.toggle('active');
 };
 
 window.changePage = (p) => {
     const pageDb = document.getElementById('page-db');
     const pageIn = document.getElementById('page-in');
-    
-    // Desktop Buttons
     const btnDb = document.getElementById('btn-db');
     const btnIn = document.getElementById('btn-in');
-
-    // Mobile Buttons
-    const btnDbMob = document.getElementById('btn-db-mob');
-    const btnInMob = document.getElementById('btn-in-mob');
     
-    // Switch Pages
     pageDb?.classList.toggle('hidden-page', p !== 'db');
     pageIn?.classList.toggle('hidden-page', p !== 'in');
     
-    // UI Feedback Desktop
     [btnDb, btnIn].forEach(btn => btn?.classList.remove('bg-white/20', 'opacity-100'));
-    if (p === 'db') btnDb?.classList.add('bg-white/20', 'opacity-100');
-    else btnIn?.classList.add('bg-white/20', 'opacity-100');
-
-    // UI Feedback Mobile
-    if(p === 'db') {
-        btnDbMob?.classList.add('bg-purple-100', 'text-purple-700');
-        btnDbMob?.classList.remove('text-slate-400');
-        btnInMob?.classList.remove('bg-purple-100', 'text-purple-700');
-        btnInMob?.classList.add('text-slate-400');
-    } else {
-        btnInMob?.classList.add('bg-purple-100', 'text-purple-700');
-        btnInMob?.classList.remove('text-slate-400');
-        btnDbMob?.classList.remove('bg-purple-100', 'text-purple-700');
-        btnDbMob?.classList.add('text-slate-400');
-    }
+    const activeBtn = p === 'db' ? btnDb : btnIn;
+    activeBtn?.classList.add('bg-white/20', 'opacity-100');
 
     if (window.innerWidth < 1024) {
-        document.getElementById('sidebar')?.classList.add('hidden');
-        document.getElementById('overlay')?.classList.add('hidden');
+        document.getElementById('sidebar')?.classList.remove('active');
+        document.getElementById('overlay')?.classList.remove('active');
     }
     window.render();
-};
-
-window.goToFilter = (f) => {
-    window.currentFilter = f;
-    window.changePage('in'); 
 };
 
 window.setFilter = (f) => {
@@ -140,7 +108,7 @@ window.showMedDetail = (medJson) => {
     document.getElementById('modal-cat').innerText = m.category || 'ทั่วไป';
     document.getElementById('modal-stock').innerText = m.stock.toLocaleString();
     document.getElementById('modal-min').innerText = m.minStock.toLocaleString();
-    document.getElementById('modal-lot').innerText = m.lot;
+    document.getElementById('modal-lot').innerText = m.lot || "-";
     document.getElementById('modal-unit').innerText = m.unit || 'หน่วย';
 
     const expLabel = document.getElementById('modal-exp');
@@ -176,8 +144,8 @@ async function fetchData() {
         const res = await fetch(`${SHEET_URL}?action=dashboard_data&t=${Date.now()}`);
         const data = await res.json();
         
-        const inventoryData = data.inventory || [];
-        window.sheetMeds = inventoryData.map(item => {
+        // 1. Inventory Data
+        window.sheetMeds = (data.inventory || []).map(item => {
             const raw = Object.values(item);
             return {
                 name: String(getVal(item, ["ชื่อสินค้า", "รายการ"]) || raw[0] || "ไม่ระบุชื่อ").trim(),
@@ -190,21 +158,33 @@ async function fetchData() {
             };
         }).filter(m => m.name !== "ไม่ระบุชื่อ");
 
-        const expirySource = data.expiring || [];
-        window.expiringMeds = expirySource.map(item => ({
+        // 2. Expiry Data
+        window.expiringMeds = (data.expiring || []).map(item => ({
             normName: normalizeName(getVal(item, ["ชื่อสินค้า"])),
             daysToExpiry: parseStockValue(getVal(item, ["กี่วันถึงหมดอายุ", "days"]))
         }));
 
-        if (data.withdrawals) {
-            window.sheetWithdrawals = data.withdrawals.map(item => ({
-                name: String(getVal(item, ["ชื่อสินค้า"]) || "ไม่ระบุชื่อ").trim(),
-                normName: normalizeName(getVal(item, ["ชื่อสินค้า"])),
-                qty: parseStockValue(getVal(item, ["จำนวนที่เบิก", "จำนวน"])),
-                unit: getVal(item, ["หน่วย"]) || "หน่วย",
-                timestamp: getVal(item, ["วันที่"]) || ""
+        // 3. Recent Inbound Data (Transaction รับเข้า) - แก้ไขตามที่คุณต้องการ
+        const inboundSource = data.transactions || data.inbound; // รองรับทั้งสองคีย์
+        if (inboundSource) {
+            window.recentInbounds = inboundSource.map(item => ({
+                name: String(getVal(item, ["ชื่อสินค้า", "รายการ"]) || "ไม่ระบุชื่อ").trim(),
+                normName: normalizeName(getVal(item, ["ชื่อสินค้า", "รายการ"])),
+                qty: parseStockValue(getVal(item, ["จำนวนที่รับเข้า", "จำนวนรับเข้า", "จำนวน"])),
+                unit: getVal(item, ["หน่วยนับ", "หน่วย"]) || "หน่วย",
+                timestamp: getVal(item, ["วันที่", "วันเวลา"]) || ""
             }));
         }
+
+        // 4. Withdrawal Data
+        window.sheetWithdrawals = (data.withdrawals || []).map(item => ({
+            name: String(getVal(item, ["ชื่อสินค้า"]) || "ไม่ระบุชื่อ").trim(),
+            normName: normalizeName(getVal(item, ["ชื่อสินค้า"])),
+            qty: parseStockValue(getVal(item, ["จำนวนที่เบิก", "จำนวน"])),
+            unit: getVal(item, ["หน่วย"]) || "หน่วย",
+            timestamp: getVal(item, ["วันที่"]) || ""
+        }));
+
         window.render();
     } catch (e) { console.error("Fetch Error:", e); }
 }
@@ -239,27 +219,10 @@ window.render = () => {
         return acc;
     }, {});
 
-    const stats = allInv.reduce((acc, item) => {
-        if (item.stock > 0 && item.stock < item.minStock) acc.near_exp++;
-        if (item.stock <= 0) acc.out++;
-        if (item.daysToExpiry !== undefined && item.daysToExpiry <= 180) acc.expired++;
-        const lastDate = lastWithdrawMap[item.normName];
-        if (item.stock > 0 && (!lastDate || lastDate < sixMonthsAgo)) acc.dead++;
-        return acc;
-    }, { near_exp: 0, out: 0, expired: 0, dead: 0 });
+    // อัปเดตตัวเลข Stats
+    updateStats(allInv, lastWithdrawMap, sixMonthsAgo);
 
-    const update = (id, val) => { 
-        const el = document.getElementById(id);
-        if(el) el.innerText = val.toLocaleString(); 
-    };
-    
-    // อัปเดตตัวเลขทุกจุด (รวม Mobile Header)
-    ['stat-total', 'stat-total-db'].forEach(id => update(id, allInv.length));
-    ['stat-low', 'stat-low-db'].forEach(id => update(id, stats.near_exp));
-    ['stat-out', 'stat-out-db', 'stat-out-db-mobile'].forEach(id => update(id, stats.out));
-    ['stat-exp', 'stat-exp-db', 'stat-exp-db-mobile'].forEach(id => update(id, stats.expired));
-    ['stat-dead', 'stat-dead-db'].forEach(id => update(id, stats.dead));
-
+    // กรองข้อมูลตารางหลัก
     let filtered = allInv.filter(m => m.name.toLowerCase().includes(q) || m.lot.toLowerCase().includes(q));
     
     if (window.currentFilter === 'low') {
@@ -276,9 +239,75 @@ window.render = () => {
     }
 
     renderTable(filtered, lastWithdrawMap, sixMonthsAgo);
+    renderRecentInbound(allInv); 
     renderWithdrawSummary(allInv);
-    renderRecentItems(allInv); // ฟังก์ชันเสริมสำหรับแสดงรายการล่าสุด
 };
+
+// ฟังก์ชัน Stat สำหรับอัปเดต UI Dashbaord
+function updateStats(allInv, lastWithdrawMap, sixMonthsAgo) {
+    const stats = allInv.reduce((acc, item) => {
+        if (item.stock > 0 && item.stock < item.minStock) acc.near_low++;
+        if (item.stock <= 0) acc.out++;
+        if (item.daysToExpiry !== undefined && item.daysToExpiry <= 180) acc.expired++;
+        const lastDate = lastWithdrawMap[item.normName];
+        if (item.stock > 0 && (!lastDate || lastDate < sixMonthsAgo)) acc.dead++;
+        return acc;
+    }, { near_low: 0, out: 0, expired: 0, dead: 0 });
+
+    const updateUI = (id, val) => { 
+        const el = document.getElementById(id);
+        if(el) el.innerText = val.toLocaleString(); 
+    };
+    
+    ['stat-total', 'stat-total-db'].forEach(id => updateUI(id, allInv.length));
+    ['stat-low', 'stat-low-db'].forEach(id => updateUI(id, stats.near_low));
+    ['stat-out', 'stat-out-db'].forEach(id => updateUI(id, stats.out));
+    ['stat-exp', 'stat-exp-db'].forEach(id => updateUI(id, stats.expired));
+    ['stat-dead', 'stat-dead-db'].forEach(id => updateUI(id, stats.dead));
+}
+
+// ฟังก์ชันแสดงรายการรับเข้าล่าสุด (กรอง 7 วันล่าสุด)
+function renderRecentInbound(allInv) {
+    const container = document.getElementById('recent-table-body');
+    if (!container) return;
+
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const recent = (window.recentInbounds || []).filter(item => {
+        const d = window.parseDate(item.timestamp);
+        return d && d >= oneWeekAgo;
+    }).sort((a, b) => window.parseDate(b.timestamp) - window.parseDate(a.timestamp));
+
+    if (recent.length === 0) {
+        container.innerHTML = `<p class="text-center py-6 text-slate-400 text-xs italic">ไม่มีรายการรับเข้าใน 7 วันที่ผ่านมา</p>`;
+        return;
+    }
+
+    container.innerHTML = recent.map(item => {
+        const invItem = allInv.find(i => i.normName === item.normName) || { name: item.name, stock: 0, minStock: 0, category: 'ทั่วไป', lot: '-' };
+        const medJson = encodeURIComponent(JSON.stringify(invItem));
+        const dateObj = window.parseDate(item.timestamp);
+        const dateStr = dateObj ? dateObj.toLocaleDateString('th-TH', { day: '2-digit', month: 'short' }) : "-";
+
+        return `
+        <div onclick="window.showMedDetail('${medJson}')" class="flex items-center justify-between p-4 mb-2 rounded-2xl bg-white border border-slate-100 hover:border-emerald-300 hover:shadow-sm cursor-pointer transition-all">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <i class="fas fa-arrow-down text-xs"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-slate-700">${item.name}</h4>
+                    <p class="text-[10px] text-slate-400 font-medium">${dateStr} • ล็อต: ${invItem.lot}</p>
+                </div>
+            </div>
+            <div class="text-right">
+                <span class="text-sm font-black text-emerald-600">+${item.qty.toLocaleString()}</span>
+                <p class="text-[9px] text-slate-400 font-bold uppercase">${item.unit}</p>
+            </div>
+        </div>`;
+    }).join('');
+}
 
 function renderTable(data, lastWithdrawMap, sixMonthsAgo) {
     const tbody = document.getElementById('table-in-body');
@@ -297,7 +326,7 @@ function renderTable(data, lastWithdrawMap, sixMonthsAgo) {
             statusText = "สินค้าหมด"; 
         } else if (m.daysToExpiry !== undefined && m.daysToExpiry <= 180) {
             badgeClass = "bg-purple-100 text-purple-600";
-            statusText = "ใกล้หมดอายุ (180ว.)";
+            statusText = "ใกล้หมดอายุ";
             if (m.daysToExpiry <= 30) {
                 badgeClass = "bg-red-600 text-white";
                 statusText = "วิกฤต/หมดอายุ";
@@ -311,24 +340,20 @@ function renderTable(data, lastWithdrawMap, sixMonthsAgo) {
         }
 
         return `
-        <tr onclick="showMedDetail('${medJson}')" class="border-b border-slate-50 hover:bg-slate-100 cursor-pointer transition-colors">
+        <tr onclick="window.showMedDetail('${medJson}')" class="border-b border-slate-50 hover:bg-slate-50 cursor-pointer transition-colors">
             <td class="px-6 py-4">
                 <div class="font-bold text-slate-800">${m.name}</div>
-                <div class="text-[10px] text-purple-600 font-black">หมวดหมู่: ${m.category}</div>
+                <div class="text-[10px] text-purple-600 font-black">${m.category}</div>
             </td>
             <td class="px-6 py-4 text-center">
-                <div class="text-lg font-black ${m.stock <= 0 ? 'text-red-500' : (m.stock < m.minStock ? 'text-orange-500' : 'text-slate-700')}">
-                    ${m.stock.toLocaleString()}
-                </div>
-                <div class="text-[9px] text-slate-400 font-bold uppercase">Min: ${m.minStock.toLocaleString()}</div>
+                <div class="text-lg font-black ${m.stock <= 0 ? 'text-red-500' : 'text-slate-700'}">${m.stock.toLocaleString()}</div>
+                <div class="text-[9px] text-slate-400">Min: ${m.minStock.toLocaleString()}</div>
             </td>
-            <td class="px-6 py-4 font-bold text-slate-600 text-center">
-                ${m.daysToExpiry !== undefined ? `<span class="${m.daysToExpiry <= 180 ? 'text-red-500' : 'text-slate-600'}">${m.daysToExpiry} วัน</span>` : '-'}
+            <td class="px-6 py-4 text-center font-bold text-slate-600">
+                ${m.daysToExpiry !== undefined ? `<span class="${m.daysToExpiry <= 180 ? 'text-red-500' : ''}">${m.daysToExpiry} วัน</span>` : '-'}
             </td>
             <td class="px-6 py-4 text-right">
-                <span class="px-3 py-1 rounded-full text-[10px] font-bold ${badgeClass}">
-                    ${statusText}
-                </span>
+                <span class="px-3 py-1 rounded-full text-[10px] font-bold ${badgeClass}">${statusText}</span>
             </td>
         </tr>`;
     }).join('');
@@ -350,41 +375,19 @@ function renderWithdrawSummary(allInventory) {
         return acc;
     }, {});
     
-    const sorted = Object.values(summary).sort((a, b) => b.total - a.total).slice(0, 5);
+    const sorted = Object.values(summary).sort((a, b) => b.total - a.total).slice(0, 8);
 
     withdrawBody.innerHTML = sorted.map(w => {
         const invItem = allInventory.find(i => i.normName === normalizeName(w.name));
         const currentStock = invItem ? invItem.stock : 0;
         return `
-        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-            <div>
-                <div class="font-bold text-slate-800 text-sm">${w.name}</div>
-                <div class="text-[10px] text-orange-600 font-black">เบิกสะสม: ${w.total.toLocaleString()} ${w.unit}</div>
-            </div>
-            <div class="text-right">
-                <div class="text-xs text-slate-400 font-bold">คงเหลือ</div>
-                <div class="font-black ${currentStock <= 0 ? 'text-red-500' : 'text-slate-700'}">${currentStock.toLocaleString()}</div>
-            </div>
-        </div>`;
+        <tr class="bg-slate-50/50 hover:bg-orange-50 transition-all">
+            <td class="px-4 py-3 rounded-l-xl font-bold text-slate-700">${w.name}</td>
+            <td class="px-4 py-3 text-center"><span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-black">เบิก: ${w.total.toLocaleString()}</span></td>
+            <td class="px-4 py-3 text-center font-black ${currentStock <= 0 ? 'text-red-500' : 'text-slate-700'}">${currentStock.toLocaleString()}</td>
+            <td class="px-6 py-4 text-right rounded-r-xl text-[10px] font-bold text-slate-400">${w.unit}</td>
+        </tr>`;
     }).join('');
-}
-
-function renderRecentItems() {
-    const recentBody = document.getElementById('recent-table-body');
-    if (!recentBody) return;
-    
-    const recent = (window.sheetWithdrawals || []).slice(0, 5);
-    recentBody.innerHTML = recent.map(r => `
-        <div class="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-xl transition-all">
-            <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center text-xs font-bold shrink-0">
-                ${r.qty}
-            </div>
-            <div class="min-w-0">
-                <div class="text-sm font-bold text-slate-800 truncate">${r.name}</div>
-                <div class="text-[10px] text-slate-400">${r.timestamp}</div>
-            </div>
-        </div>
-    `).join('');
 }
 
 // Start
